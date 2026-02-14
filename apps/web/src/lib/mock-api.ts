@@ -14,6 +14,8 @@ import type {
   RecallAnswerResponse,
   Settings,
   TodayReading,
+  Feedback,
+  CreateFeedbackPayload,
 } from "./types";
 import { DEFAULT_TRANSLATIONS } from "./translations";
 
@@ -51,6 +53,7 @@ let mockState = {
     ],
   },
   notes: [] as Note[],
+  feedback: [] as Feedback[],
 };
 
 // Mock passages
@@ -166,6 +169,7 @@ class MockApiClient {
       supportedAccentColors: ["teal_calm", "sage_mist", "sky_blue", "lavender_hush", "rose_dawn", "sand_warm"],
       supportedListeningVoices: ["warm_guide", "calm_narrator", "pastoral", "youthful", "classic"],
       translationMicrocopy: "More translations coming as licensing allows.",
+      appVersion: "0.6.0",
     };
   }
 
@@ -273,6 +277,25 @@ class MockApiClient {
     await this.delay(200);
     mockState.settings = { ...mockState.settings, ...payload };
     return mockState.settings;
+  }
+
+  async createFeedback(payload: CreateFeedbackPayload): Promise<Feedback> {
+    await this.delay(150);
+    const item: Feedback = {
+      id: `feedback-${Date.now()}`,
+      category: payload.category,
+      rating: payload.rating,
+      message: payload.message,
+      contextPath: payload.contextPath,
+      createdAt: new Date().toISOString(),
+    };
+    mockState.feedback.unshift(item);
+    return item;
+  }
+
+  async getFeedback(limit = 20): Promise<Feedback[]> {
+    await this.delay(120);
+    return mockState.feedback.slice(0, limit);
   }
 }
 

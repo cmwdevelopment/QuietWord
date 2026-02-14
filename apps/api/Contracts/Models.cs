@@ -16,7 +16,8 @@ public sealed record BootstrapResponse(
     string[] SupportedRecapVoices,
     string[] SupportedAccentColors,
     string[] SupportedListeningVoices,
-    string TranslationMicrocopy);
+    string TranslationMicrocopy,
+    string AppVersion);
 
 public sealed record PlanSummary(Guid PlanId, string Slug, string Name, int TotalDays, int CurrentDayIndex);
 public sealed record UserSettingsDto(
@@ -52,6 +53,9 @@ public sealed record SaveSettingsRequest(
     decimal? ListeningSpeed = null);
 
 public sealed record AudioSynthesizeRequest(string Text, string? Voice = null, decimal? Speed = null);
+public sealed record CreateFeedbackRequest(string Category, int Rating, string Message, string? ContextPath = null);
+public sealed record FeedbackDto(Guid Id, string Category, int Rating, string Message, string? ContextPath, DateTime CreatedAt);
+public sealed record AppMetaResponse(string Version);
 
 public sealed record RequestMagicLinkRequest(string Email);
 public sealed record RequestMagicLinkResponse(bool Sent, string? DevToken = null);

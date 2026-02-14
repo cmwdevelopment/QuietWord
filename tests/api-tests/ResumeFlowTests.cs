@@ -1,12 +1,13 @@
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using QuietWord.Api.Contracts;
 using QuietWord.Api.Data;
 using QuietWord.Api.Domain;
+using QuietWord.Api.Services;
 
 namespace QuietWord.Api.Tests;
 
@@ -41,32 +42,25 @@ public class ResumeFlowTests(QuietWordWebFactory factory) : IClassFixture<QuietW
 
 public class QuietWordWebFactory : WebApplicationFactory<Program>
 {
+    private static readonly Guid TestUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
 
         builder.ConfigureServices(services =>
         {
-            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));
-            if (descriptor is not null)
-            {
-                services.Remove(descriptor);
-            }
-
-            services.AddDbContext<AppDbContext>(options =>
-            {
-                options.UseInMemoryDatabase("quietword-tests");
-            });
+            services.AddScoped<IAuthService, TestAuthService>();
 
             using var scope = services.BuildServiceProvider().CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             db.Database.EnsureCreated();
 
             var planId = Guid.NewGuid();
-            db.Users.Add(new User { Id = DemoUser.UserId, Name = "Demo User" });
+            db.Users.Add(new User { Id = TestUserId, Name = "Test User", Email = "test@quietword.local" });
             db.UserSettings.Add(new UserSettings
             {
-                UserId = DemoUser.UserId,
+                UserId = TestUserId,
                 Translation = "WEB",
                 Pace = ReadingPace.Standard,
                 ReminderTime = new TimeOnly(7, 30)
@@ -81,9 +75,31 @@ public class QuietWordWebFactory : WebApplicationFactory<Program>
                 PsalmRef = "Psalm 1",
                 Theme = "Beginning with the Word"
             });
-            db.UserPlans.Add(new UserPlan { UserId = DemoUser.UserId, PlanId = planId, IsActive = true });
-            db.ReadingStates.Add(new ReadingState { UserId = DemoUser.UserId, PlanId = planId, CurrentDayIndex = 1 });
+            db.UserPlans.Add(new UserPlan { UserId = TestUserId, PlanId = planId, IsActive = true });
+            db.ReadingStates.Add(new ReadingState { UserId = TestUserId, PlanId = planId, CurrentDayIndex = 1 });
             db.SaveChanges();
         });
     }
+}
+
+public class TestAuthService : IAuthService
+{
+    private static readonly Guid TestUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+    public Task<AuthMeResponse?> SignInAsync(string email, HttpResponse response, CancellationToken ct = default) =>
+        Task.FromResult<AuthMeResponse?>(new AuthMeResponse(TestUserId, "test@quietword.local"));
+
+    public Task<RequestMagicLinkResponse> RequestMagicLinkAsync(string email, CancellationToken ct = default) =>
+        Task.FromResult(new RequestMagicLinkResponse(true, "dev-token"));
+
+    public Task<AuthMeResponse?> VerifyMagicLinkAsync(string email, string token, HttpResponse response, CancellationToken ct = default) =>
+        Task.FromResult<AuthMeResponse?>(new AuthMeResponse(TestUserId, "test@quietword.local"));
+
+    public Task<AuthMeResponse?> GetCurrentUserAsync(HttpRequest request, CancellationToken ct = default) =>
+        Task.FromResult<AuthMeResponse?>(new AuthMeResponse(TestUserId, "test@quietword.local"));
+
+    public Task<Guid?> GetCurrentUserIdAsync(HttpRequest request, CancellationToken ct = default) =>
+        Task.FromResult<Guid?>(TestUserId);
+
+    public Task LogoutAsync(HttpRequest request, HttpResponse response, CancellationToken ct = default) => Task.CompletedTask;
 }

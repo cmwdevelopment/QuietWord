@@ -8,6 +8,7 @@ import { Reader } from "../pages/Reader";
 import { Notes } from "../pages/Notes";
 import { Settings } from "../pages/Settings";
 import { SignIn } from "../pages/SignIn";
+import { FeedbackPage } from "../pages/Feedback";
 import ThemePreview from "../pages/ThemePreview";
 import { NotFound } from "../pages/NotFound";
 
@@ -39,6 +40,10 @@ export const router = createBrowserRouter([
   {
     path: "/settings",
     Component: Settings,
+  },
+  {
+    path: "/feedback",
+    Component: FeedbackPage,
   },
   {
     path: "/theme-preview",

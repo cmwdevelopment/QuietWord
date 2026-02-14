@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore API/Test dependencies
+        run: dotnet restore QuietWord.sln
+
+      - name: Build API
+        run: dotnet build apps/api/QuietWord.Api.csproj --configuration Release --no-restore
+
+      - name: Run API tests
+        run: dotnet test tests/api-tests/QuietWord.Api.Tests.csproj --configuration Release --no-build
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build Web
+        working-directory: apps/web
+        run: |
+          npm install
+          npm run build

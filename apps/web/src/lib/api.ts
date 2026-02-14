@@ -14,6 +14,8 @@ import type {
   Settings,
   TodayReading,
   AuthMe,
+  Feedback,
+  CreateFeedbackPayload,
 } from "./types";
 import { config } from "./config";
 import { mockApi } from "./mock-api";
@@ -175,6 +177,19 @@ class ApiClient {
     }
 
     return response.blob();
+  }
+
+  async createFeedback(payload: CreateFeedbackPayload): Promise<Feedback> {
+    if (config.isDemoMode) return mockApi.createFeedback(payload);
+    return this.request<Feedback>("/feedback", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getFeedback(limit = 20): Promise<Feedback[]> {
+    if (config.isDemoMode) return mockApi.getFeedback(limit);
+    return this.request<Feedback[]>(`/feedback?limit=${limit}`);
   }
 }
 

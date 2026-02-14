@@ -16,6 +16,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<RecallItem> RecallItems => Set<RecallItem>();
     public DbSet<MagicLinkToken> MagicLinkTokens => Set<MagicLinkToken>();
     public DbSet<Session> Sessions => Set<Session>();
+    public DbSet<FeedbackItem> FeedbackItems => Set<FeedbackItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -155,6 +156,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.HasIndex(x => x.TokenHash).IsUnique();
             b.HasIndex(x => x.UserId);
+        });
+
+        modelBuilder.Entity<FeedbackItem>(b =>
+        {
+            b.ToTable("feedback_items");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.Category).HasColumnName("category");
+            b.Property(x => x.Rating).HasColumnName("rating");
+            b.Property(x => x.Message).HasColumnName("message");
+            b.Property(x => x.ContextPath).HasColumnName("context_path");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.HasIndex(x => new { x.UserId, x.CreatedAt }).IsDescending(false, true);
         });
     }
 }

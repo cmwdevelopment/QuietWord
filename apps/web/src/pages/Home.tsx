@@ -209,6 +209,7 @@ export function Home() {
         <div className="glass p-6 rounded-2xl shadow-md">
           <h3 className="text-base font-medium text-foreground mb-2">Quick recap</h3>
           <p className="text-sm text-foreground-muted">You're on day {today.dayIndex} of your {plan.name} plan.</p>
+          <p className="text-xs text-foreground-subtle mt-2">Version {bootstrap.appVersion}</p>
         </div>
 
         {pendingRecall && (
@@ -259,15 +260,21 @@ export function Home() {
           <div className="flex gap-3">
             <button
               onClick={() => navigate("/notes")}
-              className="flex-1 px-4 py-3 glass hover:bg-glass-highlight border border-glass-border rounded-xl text-sm font-medium text-foreground transition-all"
+              className="flex-1 px-3 py-3 glass hover:bg-glass-highlight border border-glass-border rounded-xl text-sm font-medium text-foreground transition-all"
             >
               Notes
             </button>
             <button
               onClick={() => navigate("/settings")}
-              className="flex-1 px-4 py-3 glass hover:bg-glass-highlight border border-glass-border rounded-xl text-sm font-medium text-foreground transition-all"
+              className="flex-1 px-3 py-3 glass hover:bg-glass-highlight border border-glass-border rounded-xl text-sm font-medium text-foreground transition-all"
             >
               Settings
+            </button>
+            <button
+              onClick={() => navigate("/feedback")}
+              className="flex-1 px-3 py-3 glass hover:bg-glass-highlight border border-glass-border rounded-xl text-sm font-medium text-foreground transition-all"
+            >
+              Feedback
             </button>
           </div>
         </div>

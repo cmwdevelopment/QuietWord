@@ -145,3 +145,14 @@ public sealed class Session
     public DateTime ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
+
+public sealed class FeedbackItem
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    [MaxLength(40)] public string Category { get; set; } = "general";
+    public int Rating { get; set; } = 5;
+    [MaxLength(2000)] public string Message { get; set; } = string.Empty;
+    [MaxLength(120)] public string? ContextPath { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}

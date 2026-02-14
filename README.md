@@ -13,7 +13,7 @@ Supporting line: "One passage at a time."
 
 ## Architecture Notes
 
-- MVP auth uses one fixed seeded user id (`11111111-1111-1111-1111-111111111111`).
+- MVP auth uses lightweight email sign-in + cookie sessions.
 - `ITextProvider` abstraction decouples scripture retrieval from endpoint logic.
 - `BibleApiTextProvider` wraps a public-domain compatible source (`bible-api.com`), adds memory cache and graceful fallback text.
 - Deterministic chunking:
@@ -25,6 +25,7 @@ Supporting line: "One passage at a time."
 ## API Endpoints
 
 - `GET /api/bootstrap`
+- `GET /api/meta/version`
 - `GET /api/day/today`
 - `GET /api/passage?ref=...&translation=...`
 - `POST /api/state/resume`
@@ -35,6 +36,8 @@ Supporting line: "One passage at a time."
 - `POST /api/recall/answer`
 - `GET /api/settings`
 - `POST /api/settings`
+- `GET /api/feedback?limit=20`
+- `POST /api/feedback`
 
 ## Setup
 
@@ -70,6 +73,30 @@ Supporting line: "One passage at a time."
 Included tests:
 - Chunking determinism + bounds
 - Integration flow: start day -> save resume -> bootstrap shows restored resume
+
+## Versioning
+
+- Repository version is tracked in root `VERSION`.
+- API returns version via `GET /api/meta/version`.
+- `GET /api/bootstrap` also includes `appVersion` for UI display.
+- Optional deployment override: set `APP_VERSION` env var to stamp a release version at runtime.
+
+## CI/CD
+
+- CI workflow: `.github/workflows/ci.yml`
+  - Builds API
+  - Runs API tests
+  - Builds web
+- CD workflow: `.github/workflows/deploy-vps.yml`
+  - Deploys to VPS using SSH and Docker Compose.
+
+Required GitHub secrets:
+- `VPS_HOST`
+- `VPS_USER`
+- `VPS_SSH_KEY`
+
+Default deploy path on server:
+- `~/apps/QuietWord`
 
 ## Licensed Translation Next Steps
 

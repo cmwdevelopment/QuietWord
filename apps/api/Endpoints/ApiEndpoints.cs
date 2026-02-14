@@ -1,8 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using QuietWord.Api.Contracts;
 using QuietWord.Api.Data;
 using QuietWord.Api.Domain;
 using QuietWord.Api.Services;
+using System.Reflection;
 
 namespace QuietWord.Api.Endpoints;
 
@@ -37,6 +38,9 @@ public static class ApiEndpoints
         group.MapPost("/recall/answer", AnswerRecallAsync);
         group.MapGet("/settings", GetSettingsAsync);
         group.MapPost("/settings", SaveSettingsAsync);
+        group.MapGet("/meta/version", GetVersionAsync);
+        group.MapPost("/feedback", CreateFeedbackAsync);
+        group.MapGet("/feedback", GetFeedbackAsync);
         group.MapPost("/audio/synthesize", SynthesizeAudioAsync);
 
         return group;
@@ -149,7 +153,8 @@ public static class ApiEndpoints
             SupportedRecapVoices,
             SupportedAccentColors,
             SupportedListeningVoices,
-            "Translation availability depends on your installed text libraries.");
+            "Translation availability depends on your installed text libraries.",
+            GetAppVersion());
 
         return Results.Ok(response);
     }
@@ -436,6 +441,58 @@ public static class ApiEndpoints
             NormalizeListeningSpeed(settings.ListeningSpeed)));
     }
 
+    private static IResult GetVersionAsync()
+    {
+        return Results.Ok(new AppMetaResponse(GetAppVersion()));
+    }
+
+    private static async Task<IResult> CreateFeedbackAsync(CreateFeedbackRequest request, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
+    {
+        var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
+        if (userId is null) return Results.Unauthorized();
+
+        var category = string.IsNullOrWhiteSpace(request.Category) ? "general" : request.Category.Trim().ToLowerInvariant();
+        var rating = Math.Clamp(request.Rating, 1, 5);
+        var message = (request.Message ?? string.Empty).Trim();
+        var contextPath = string.IsNullOrWhiteSpace(request.ContextPath) ? null : request.ContextPath.Trim();
+
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return Results.BadRequest("Feedback message is required.");
+        }
+
+        var feedback = new FeedbackItem
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId.Value,
+            Category = category.Length > 40 ? category[..40] : category,
+            Rating = rating,
+            Message = message.Length > 2000 ? message[..2000] : message,
+            ContextPath = contextPath is not null && contextPath.Length > 120 ? contextPath[..120] : contextPath,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.FeedbackItems.Add(feedback);
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new FeedbackDto(feedback.Id, feedback.Category, feedback.Rating, feedback.Message, feedback.ContextPath, feedback.CreatedAt));
+    }
+
+    private static async Task<IResult> GetFeedbackAsync(int? limit, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
+    {
+        var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
+        if (userId is null) return Results.Unauthorized();
+
+        var size = Math.Clamp(limit ?? 20, 1, 100);
+        var items = await db.FeedbackItems
+            .Where(x => x.UserId == userId.Value)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(size)
+            .Select(x => new FeedbackDto(x.Id, x.Category, x.Rating, x.Message, x.ContextPath, x.CreatedAt))
+            .ToListAsync(ct);
+
+        return Results.Ok(items);
+    }
     private static async Task<IResult> SynthesizeAudioAsync(AudioSynthesizeRequest request, IAudioSynthesisService audioService, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
     {
         var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
@@ -543,5 +600,26 @@ public static class ApiEndpoints
     private static decimal NormalizeListeningSpeed(decimal value)
     {
         return Math.Round(Math.Clamp(value, 0.75m, 1.50m), 2);
+    }
+
+    private static string GetAppVersion()
+    {
+        var envVersion = Environment.GetEnvironmentVariable("APP_VERSION");
+        if (!string.IsNullOrWhiteSpace(envVersion))
+        {
+            return envVersion.Trim();
+        }
+
+        var fileVersion = Path.Combine(AppContext.BaseDirectory, "VERSION");
+        if (File.Exists(fileVersion))
+        {
+            var value = File.ReadAllText(fileVersion).Trim();
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0";
     }
 }

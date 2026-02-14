@@ -12,7 +12,14 @@ var connectionString = builder.Configuration.GetConnectionString("Postgres")
     ?? builder.Configuration["DATABASE_URL"]
     ?? "Host=localhost;Port=5432;Database=quietword;Username=quietword;Password=quietword";
 
-builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(connectionString));
+if (builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddDbContext<AppDbContext>(opt => opt.UseInMemoryDatabase("quietword-tests"));
+}
+else
+{
+    builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(connectionString));
+}
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("web", policy =>

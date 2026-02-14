@@ -68,6 +68,7 @@ export interface BootstrapData {
   supportedAccentColors?: string[];
   supportedListeningVoices?: ListeningVoice[];
   translationMicrocopy: string;
+  appVersion: string;
 }
 
 export interface Verse {
@@ -130,4 +131,20 @@ export interface RecallAnswerResponse {
 export interface AuthMe {
   userId: string;
   email: string;
+}
+
+export interface Feedback {
+  id: string;
+  category: string;
+  rating: number;
+  message: string;
+  contextPath?: string;
+  createdAt: string;
+}
+
+export interface CreateFeedbackPayload {
+  category: string;
+  rating: number;
+  message: string;
+  contextPath?: string;
 }
