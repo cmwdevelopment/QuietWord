@@ -29,11 +29,13 @@ export function Reader() {
   const [isAudioStarting, setIsAudioStarting] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isListeningSession, setIsListeningSession] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const playAttemptRef = React.useRef(0);
   const audioUnlockedRef = React.useRef(false);
   const pendingAutoplayRef = React.useRef(false);
+  const chunkAudioRef = React.useRef<Map<number, string>>(new Map());
+  const prefetchTokenRef = React.useRef(0);
+  const sessionIntroChunkRef = React.useRef<number | null>(null);
 
   const sectionName = section === "john" ? "John" : "Psalm";
   const sectionDisplay = section === "john" ? "Gospel of John" : "Psalm";
@@ -52,11 +54,12 @@ export function Reader() {
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
+      for (const value of chunkAudioRef.current.values()) {
+        URL.revokeObjectURL(value);
       }
+      chunkAudioRef.current.clear();
     };
-  }, [audioUrl]);
+  }, []);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -88,6 +91,11 @@ export function Reader() {
     setError(null);
     setComparePassage(null);
     setCompareTranslation("");
+    prefetchTokenRef.current++;
+    sessionIntroChunkRef.current = null;
+    setIsListeningSession(false);
+    clearChunkAudioCache();
+    stopAudio();
 
     try {
       const bootstrapData = await api.bootstrap();
@@ -178,9 +186,61 @@ export function Reader() {
     if (!passage) return "";
     const chunk = passage.chunks[chunkIndex];
     if (!chunk) return "";
+    const includeIntro = sessionIntroChunkRef.current === chunkIndex;
+    if (!includeIntro) {
+      return chunk.text.trim();
+    }
+
     const header = `${sectionDisplay}. ${passage.ref}. ${passage.translation} translation.`;
-    // Read passage context once, then read chunk text directly without verse number callouts.
     return `${header} ${chunk.text}`.trim();
+  };
+
+  const clearChunkAudioCache = () => {
+    for (const value of chunkAudioRef.current.values()) {
+      URL.revokeObjectURL(value);
+    }
+    chunkAudioRef.current.clear();
+  };
+
+  const ensureChunkAudioUrl = async (chunkIndex: number) => {
+    const existing = chunkAudioRef.current.get(chunkIndex);
+    if (existing) return existing;
+
+    if (!bootstrap?.settings.listeningEnabled) {
+      throw new Error("Listening mode is disabled.");
+    }
+
+    const script = buildChunkListeningScript(chunkIndex);
+    if (!script) {
+      throw new Error("No chunk text available for synthesis.");
+    }
+
+    const blob = await api.synthesizeAudio({
+      text: script,
+      voice: bootstrap.settings.listeningVoice,
+      speed: bootstrap.settings.listeningSpeed,
+    });
+
+    const url = URL.createObjectURL(blob);
+    chunkAudioRef.current.set(chunkIndex, url);
+    return url;
+  };
+
+  const prefetchRemainingChunks = (startChunkIndex: number) => {
+    if (!passage) return;
+
+    const myToken = ++prefetchTokenRef.current;
+    void (async () => {
+      for (let i = startChunkIndex; i < passage.chunks.length; i++) {
+        if (prefetchTokenRef.current !== myToken) break;
+        if (chunkAudioRef.current.has(i)) continue;
+        try {
+          await ensureChunkAudioUrl(i);
+        } catch {
+          // Keep reading flow resilient; foreground playback path can retry.
+        }
+      }
+    })();
   };
 
   const playChunkAudio = async (chunkIndex: number) => {
@@ -189,23 +249,10 @@ export function Reader() {
       return;
     }
 
-    const script = buildChunkListeningScript(chunkIndex);
-    if (!script) return;
-
     stopAudio();
     setIsSynthesizingAudio(true);
     try {
-      const blob = await api.synthesizeAudio({
-        text: script,
-        voice: bootstrap.settings.listeningVoice,
-        speed: bootstrap.settings.listeningSpeed,
-      });
-
-      const nextUrl = URL.createObjectURL(blob);
-      setAudioUrl((current) => {
-        if (current) URL.revokeObjectURL(current);
-        return nextUrl;
-      });
+      const nextUrl = await ensureChunkAudioUrl(chunkIndex);
 
       if (audioRef.current) {
         audioRef.current.loop = false;
@@ -215,7 +262,6 @@ export function Reader() {
         pendingAutoplayRef.current = true;
         setIsAudioStarting(true);
         try {
-          await audioRef.current.load();
           await audioRef.current.play();
           if (playAttemptRef.current === currentAttempt) {
             setIsPlayingAudio(true);
@@ -345,11 +391,16 @@ export function Reader() {
 
     if (audioRef.current && isPlayingAudio) {
       setIsListeningSession(false);
+      sessionIntroChunkRef.current = null;
+      prefetchTokenRef.current++;
       stopAudio();
       return;
     }
 
+    clearChunkAudioCache();
+    sessionIntroChunkRef.current = currentChunkIndex;
     setIsListeningSession(true);
+    prefetchRemainingChunks(currentChunkIndex);
     await playChunkAudio(currentChunkIndex);
   };
 
