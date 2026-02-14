@@ -142,7 +142,7 @@ export function Home() {
             <div className="space-y-6 relative z-10">
               <div>
                 <h2 className="text-3xl font-light text-foreground mb-2">Today's Reading</h2>
-                <p className="text-foreground-muted text-sm font-medium">Day {today.dayIndex + 1} of {plan.totalDays}</p>
+                <p className="text-foreground-muted text-sm font-medium">Day {today.dayIndex} of {plan.totalDays}</p>
                 {today.theme && <p className="text-primary mt-3 text-base italic">"{today.theme}"</p>}
               </div>
 
@@ -208,7 +208,7 @@ export function Home() {
 
         <div className="glass p-6 rounded-2xl shadow-md">
           <h3 className="text-base font-medium text-foreground mb-2">Quick recap</h3>
-          <p className="text-sm text-foreground-muted">You're on day {today.dayIndex + 1} of your {plan.name} plan.</p>
+          <p className="text-sm text-foreground-muted">You're on day {today.dayIndex} of your {plan.name} plan.</p>
         </div>
 
         {pendingRecall && (
