@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 220" role="img" aria-labelledby="title desc">
+  <title id="title">QuietWord Horizontal Logo</title>
+  <desc id="desc">QuietWord logo mark with wordmark and supporting tagline.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3f7f7a" />
+      <stop offset="100%" stop-color="#274e59" />
+    </linearGradient>
+  </defs>
+
+  <rect x="18" y="18" width="184" height="184" rx="42" fill="url(#bg)" />
+
+  <path
+    d="M56 78c17 0 30 5 42 14v58c-12-9-25-14-42-14V78Zm108 0c-17 0-30 5-42 14v58c12-9 25-14 42-14V78Z"
+    fill="#f4fbf8"
+    opacity="0.95"
+  />
+  <path d="M110 91v59" stroke="#dff3ed" stroke-width="6" stroke-linecap="round" opacity="0.9" />
+  <circle cx="110" cy="60" r="7" fill="#d9eee7" />
+
+  <text x="240" y="104" fill="#0f2a33" font-family="Merriweather, Georgia, serif" font-size="74" letter-spacing="1.2">
+    QuietWord
+  </text>
+  <text x="242" y="148" fill="#44616b" font-family="Inter, Segoe UI, sans-serif" font-size="26" letter-spacing="0.8">
+    Built for busy minds.
+  </text>
+</svg>
