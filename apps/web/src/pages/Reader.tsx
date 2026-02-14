@@ -28,6 +28,7 @@ export function Reader() {
   const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
   const [isAudioStarting, setIsAudioStarting] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isListeningSession, setIsListeningSession] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const playAttemptRef = React.useRef(0);
@@ -147,132 +148,34 @@ export function Reader() {
     }
   };
 
-  const handleNext = async () => {
-    if (!passage) return;
-
-    const nextIndex = currentChunkIndex + 1;
-    const totalChunks = passage.chunks.length;
-    const isJohn = section === "john";
-
-    if (isJohn) {
-      const midpoint = Math.floor(totalChunks / 2);
-      if (nextIndex === midpoint || nextIndex === totalChunks) {
-        setShowCheckpoint(true);
-        return;
-      }
-    } else if (nextIndex === totalChunks) {
-      setShowCheckpoint(true);
-      return;
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
-
-    if (nextIndex >= totalChunks) {
-      setIsComplete(true);
-      return;
-    }
-
-    setCurrentChunkIndex(nextIndex);
-    await saveResumeState(nextIndex);
+    setIsPlayingAudio(false);
+    setIsAudioStarting(false);
   };
 
-  const handleComplete = async () => {
-    if (!passage) return;
-    setShowCheckpoint(true);
-  };
-
-  const handlePrevious = async () => {
-    const prevIndex = Math.max(0, currentChunkIndex - 1);
-    setCurrentChunkIndex(prevIndex);
-    await saveResumeState(prevIndex);
-  };
-
-  const handleSaveNote = async (noteType: NoteType, body: string) => {
-    if (!passage) return;
-
-    await api.createNote({
-      noteType,
-      ref: passage.chunks[currentChunkIndex].verseRefs[0],
-      body,
-    });
-    toast.success("Note saved");
-  };
-
-  const handleCheckpointContinue = async () => {
-    setShowCheckpoint(false);
-    if (!passage) return;
-
-    const nextIndex = currentChunkIndex + 1;
-    if (nextIndex >= passage.chunks.length) {
-      setIsComplete(true);
-      return;
-    }
-
-    setCurrentChunkIndex(nextIndex);
-    await saveResumeState(nextIndex);
-  };
-
-  const handleCompleteSection = async () => {
-    if (section === "john") {
-      toast.success("Gospel complete. Ready for the Psalm?");
-      navigate("/settle/psalm");
-      return;
-    }
-
-    try {
-      await api.completeDay();
-      toast.success("Day complete. Well done.");
-      navigate("/");
-    } catch {
-      toast.error("Failed to complete day");
-    }
-  };
-
-  const buildListeningScript = () => {
-    if (!passage || !bootstrap) return "";
-
+  const buildChunkListeningScript = (chunkIndex: number) => {
+    if (!passage) return "";
+    const chunk = passage.chunks[chunkIndex];
+    if (!chunk) return "";
     const header = `${sectionDisplay}. ${passage.ref}. ${passage.translation} translation.`;
-    const scripture = passage.verses.map((v) => `${v.ref}. ${v.text}`).join(" ");
-    const recap = section === "psalm" && bootstrap.today.dailyRecap
-      ? `Today's recap. ${bootstrap.today.dailyRecap}`
-      : "";
-
-    return `${header} ${scripture} ${recap}`.trim();
+    // Read passage context once, then read chunk text directly without verse number callouts.
+    return `${header} ${chunk.text}`.trim();
   };
 
-  const handlePlayListening = async () => {
+  const playChunkAudio = async (chunkIndex: number) => {
     if (!bootstrap?.settings.listeningEnabled) {
       toast.info("Enable Listening mode in Settings first.");
       return;
     }
 
-    if (audioRef.current && isPlayingAudio) {
-      audioRef.current.pause();
-      setIsPlayingAudio(false);
-      return;
-    }
-
-    if (audioRef.current && audioUrl) {
-      const currentAttempt = ++playAttemptRef.current;
-      setIsAudioStarting(true);
-      try {
-        await audioRef.current.play();
-        if (playAttemptRef.current === currentAttempt) {
-          setIsPlayingAudio(true);
-        }
-      } catch (err) {
-        if (!(err instanceof DOMException && err.name === "AbortError")) {
-          toast.error("Could not start playback.");
-        }
-      } finally {
-        if (playAttemptRef.current === currentAttempt) {
-          setIsAudioStarting(false);
-        }
-      }
-      return;
-    }
-
-    const script = buildListeningScript();
+    const script = buildChunkListeningScript(chunkIndex);
     if (!script) return;
 
+    stopAudio();
     setIsSynthesizingAudio(true);
     try {
       const blob = await api.synthesizeAudio({
@@ -313,6 +216,114 @@ export function Reader() {
     } finally {
       setIsSynthesizingAudio(false);
     }
+  };
+
+  const handleNext = async () => {
+    if (!passage) return;
+
+    const nextIndex = currentChunkIndex + 1;
+    const totalChunks = passage.chunks.length;
+    const isJohn = section === "john";
+
+    if (isJohn) {
+      const midpoint = Math.floor(totalChunks / 2);
+      if (nextIndex === midpoint || nextIndex === totalChunks) {
+        stopAudio();
+        setShowCheckpoint(true);
+        return;
+      }
+    } else if (nextIndex === totalChunks) {
+      stopAudio();
+      setShowCheckpoint(true);
+      return;
+    }
+
+    if (nextIndex >= totalChunks) {
+      setIsComplete(true);
+      stopAudio();
+      return;
+    }
+
+    setCurrentChunkIndex(nextIndex);
+    await saveResumeState(nextIndex);
+    if (isListeningSession && bootstrap?.settings.listeningEnabled) {
+      await playChunkAudio(nextIndex);
+    }
+  };
+
+  const handleComplete = async () => {
+    if (!passage) return;
+    stopAudio();
+    setShowCheckpoint(true);
+  };
+
+  const handlePrevious = async () => {
+    const prevIndex = Math.max(0, currentChunkIndex - 1);
+    stopAudio();
+    setCurrentChunkIndex(prevIndex);
+    await saveResumeState(prevIndex);
+  };
+
+  const handleSaveNote = async (noteType: NoteType, body: string) => {
+    if (!passage) return;
+
+    await api.createNote({
+      noteType,
+      ref: passage.chunks[currentChunkIndex].verseRefs[0],
+      body,
+    });
+    toast.success("Note saved");
+  };
+
+  const handleCheckpointContinue = async () => {
+    setShowCheckpoint(false);
+    if (!passage) return;
+
+    const nextIndex = currentChunkIndex + 1;
+    if (nextIndex >= passage.chunks.length) {
+      setIsComplete(true);
+      stopAudio();
+      return;
+    }
+
+    setCurrentChunkIndex(nextIndex);
+    await saveResumeState(nextIndex);
+    if (isListeningSession && bootstrap?.settings.listeningEnabled) {
+      await playChunkAudio(nextIndex);
+    }
+  };
+
+  const handleCompleteSection = async () => {
+    stopAudio();
+    if (section === "john") {
+      toast.success("Gospel complete. Ready for the Psalm?");
+      navigate("/settle/psalm");
+      return;
+    }
+
+    try {
+      await api.completeDay();
+      toast.success("Day complete. Well done.");
+      navigate("/");
+    } catch {
+      toast.error("Failed to complete day");
+    }
+  };
+
+  const handlePlayListening = async () => {
+    if (!bootstrap?.settings.listeningEnabled) {
+      toast.info("Enable Listening mode in Settings first.");
+      return;
+    }
+
+    if (audioRef.current && isPlayingAudio) {
+      setIsListeningSession(false);
+      stopAudio();
+      return;
+    }
+
+    setIsListeningSession(true);
+    await playChunkAudio(currentChunkIndex);
   };
 
   if (isLoading) {
@@ -453,9 +464,17 @@ export function Reader() {
                 <button
                   onClick={() => void handlePlayListening()}
                   disabled={isSynthesizingAudio || isAudioStarting}
-                  className="px-4 py-2 rounded-full glass border border-glass-border text-sm text-foreground hover:bg-glass-highlight disabled:opacity-60"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-glass-border text-sm text-foreground hover:bg-glass-highlight disabled:opacity-60"
                 >
-                  {isSynthesizingAudio ? "Preparing audio..." : isAudioStarting ? "Starting..." : isPlayingAudio ? "Pause listening" : "Play listening"}
+                  <span className="inline-flex items-center gap-1">
+                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path d="M6 4.5a1 1 0 0 1 1.53-.848l8 5a1 1 0 0 1 0 1.696l-8 5A1 1 0 0 1 6 14.5v-10z" />
+                    </svg>
+                    <svg className="w-3.5 h-3.5 opacity-80" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path d="M10 2l1.2 3.4L14.5 6l-3.3.9L10 10.2 8.8 6.9 5.5 6l3.3-.6L10 2zm5.5 8l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2zM4 11l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8L4 11z" />
+                    </svg>
+                  </span>
+                  {isSynthesizingAudio ? "Generating AI audio..." : isAudioStarting ? "Starting..." : isPlayingAudio ? "Pause listening" : "Play with AI"}
                 </button>
               </div>
             </div>
@@ -465,7 +484,7 @@ export function Reader() {
               <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-accent/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
               <div className="prose prose-xl max-w-none relative z-10">
-                <p className="text-xl leading-loose text-foreground whitespace-pre-line">{currentChunk.text}</p>
+                <p className="text-foreground leading-relaxed whitespace-pre-line">{currentChunk.text}</p>
               </div>
             </div>
 
