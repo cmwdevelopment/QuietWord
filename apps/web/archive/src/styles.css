@@ -1,0 +1,114 @@
+:root {
+  font-family: "Segoe UI", "Aptos", sans-serif;
+  color: #1d2b2a;
+  background: radial-gradient(circle at 20% 0%, #f4f7f2 0%, #e8efe8 42%, #dde8df 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.shell {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+}
+
+.top-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  font-weight: 700;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.card {
+  background: #ffffffcc;
+  border: 1px solid #cad8ca;
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+.primary-button,
+.ghost-button {
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  border: 1px solid #809b8f;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-button {
+  background: #2f6a59;
+  color: #fff;
+  border-color: #2f6a59;
+}
+
+.ghost-button {
+  background: #fff;
+  color: #1d2b2a;
+}
+
+.primary-button:disabled,
+.ghost-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #b7c6b8;
+  padding: 0.5rem;
+  font: inherit;
+}
+
+.caption {
+  color: #556f64;
+  font-size: 0.9rem;
+}
+
+.soft-divider {
+  border-top: 1px solid #d8e4da;
+  padding-top: 0.6rem;
+}
+
+@media (max-width: 640px) {
+  .shell {
+    padding-top: 1rem;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+  }
+}
