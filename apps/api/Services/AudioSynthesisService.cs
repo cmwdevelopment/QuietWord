@@ -65,7 +65,7 @@ public sealed class OpenAiAudioSynthesisService(IHttpClientFactory httpClientFac
             "warm_guide" => "alloy",
             "calm_narrator" => "verse",
             "pastoral" => "sage",
-            "youthful" => "aria",
+            "youthful" => "nova",
             "classic" => "ash",
             _ => "alloy"
         };
