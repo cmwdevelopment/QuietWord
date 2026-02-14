@@ -10,6 +10,7 @@ public static class ApiEndpoints
 {
     private static readonly string[] SupportedRecapVoices = ["classic_pastor", "gen_z", "poetic", "coach", "scholar"];
     private static readonly string[] SupportedAccentColors = ["teal_calm", "sage_mist", "sky_blue", "lavender_hush", "rose_dawn", "sand_warm"];
+    private static readonly string[] SupportedListeningVoices = ["warm_guide", "calm_narrator", "pastoral", "youthful", "classic"];
     private static readonly HashSet<string> SupportedFonts = new(StringComparer.OrdinalIgnoreCase)
     {
         "Inter", "Roboto", "Open Sans", "Lato", "Montserrat", "Merriweather", "Lora", "PT Serif", "Playfair Display"
@@ -36,6 +37,7 @@ public static class ApiEndpoints
         group.MapPost("/recall/answer", AnswerRecallAsync);
         group.MapGet("/settings", GetSettingsAsync);
         group.MapPost("/settings", SaveSettingsAsync);
+        group.MapPost("/audio/synthesize", SynthesizeAudioAsync);
 
         return group;
     }
@@ -122,7 +124,16 @@ public static class ApiEndpoints
 
         var response = new BootstrapResponse(
             new PlanSummary(plan.Id, plan.Slug, plan.Name, await db.PlanDays.CountAsync(x => x.PlanId == plan.Id, ct), state.CurrentDayIndex),
-            new UserSettingsDto(settings.Translation, settings.Pace.ToString().ToLowerInvariant(), settings.ReminderTime.ToString("HH:mm"), settings.FontFamily, recapVoice, accentColor),
+            new UserSettingsDto(
+                settings.Translation,
+                settings.Pace.ToString().ToLowerInvariant(),
+                settings.ReminderTime.ToString("HH:mm"),
+                settings.FontFamily,
+                recapVoice,
+                accentColor,
+                settings.ListeningEnabled,
+                SupportedListeningVoices.Contains(settings.ListeningVoice) ? settings.ListeningVoice : "warm_guide",
+                NormalizeListeningSpeed(settings.ListeningSpeed)),
             new TodaySummary(
                 today.DayIndex,
                 today.JohnRef,
@@ -137,6 +148,7 @@ public static class ApiEndpoints
             textProvider.GetSupportedTranslations().ToArray(),
             SupportedRecapVoices,
             SupportedAccentColors,
+            SupportedListeningVoices,
             "Translation availability depends on your installed text libraries.");
 
         return Results.Ok(response);
@@ -334,10 +346,22 @@ public static class ApiEndpoints
             ReminderTime = new TimeOnly(7, 30),
             FontFamily = "Roboto",
             RecapVoice = "classic_pastor",
-            AccentColor = "teal_calm"
+            AccentColor = "teal_calm",
+            ListeningEnabled = false,
+            ListeningVoice = "warm_guide",
+            ListeningSpeed = 1.0m
         };
 
-        return Results.Ok(new UserSettingsDto(settings.Translation, settings.Pace.ToString().ToLowerInvariant(), settings.ReminderTime.ToString("HH:mm"), settings.FontFamily, settings.RecapVoice, settings.AccentColor));
+        return Results.Ok(new UserSettingsDto(
+            settings.Translation,
+            settings.Pace.ToString().ToLowerInvariant(),
+            settings.ReminderTime.ToString("HH:mm"),
+            settings.FontFamily,
+            settings.RecapVoice,
+            settings.AccentColor,
+            settings.ListeningEnabled,
+            SupportedListeningVoices.Contains(settings.ListeningVoice) ? settings.ListeningVoice : "warm_guide",
+            NormalizeListeningSpeed(settings.ListeningSpeed)));
     }
 
     private static async Task<IResult> SaveSettingsAsync(SaveSettingsRequest request, AppDbContext db, IAuthService authService, ITextProvider textProvider, HttpRequest httpRequest, CancellationToken ct)
@@ -346,22 +370,27 @@ public static class ApiEndpoints
         if (userId is null) return Results.Unauthorized();
 
         var supportedTranslations = textProvider.GetSupportedTranslations();
+        var settings = await db.UserSettings.FindAsync([userId.Value], ct);
+
         var normalizedTranslation = supportedTranslations.Contains(request.Translation.ToUpperInvariant())
             ? request.Translation.ToUpperInvariant()
             : "WEB";
         var pace = request.Pace.Equals("short", StringComparison.OrdinalIgnoreCase) ? ReadingPace.Short : ReadingPace.Standard;
         if (!TimeOnly.TryParse(request.ReminderTime, out var reminderTime)) reminderTime = new TimeOnly(7, 30);
         var fontFamily = string.IsNullOrWhiteSpace(request.FontFamily) || !SupportedFonts.Contains(request.FontFamily.Trim())
-            ? "Roboto"
+            ? settings?.FontFamily ?? "Roboto"
             : request.FontFamily.Trim();
         var recapVoice = string.IsNullOrWhiteSpace(request.RecapVoice) || !SupportedRecapVoices.Contains(request.RecapVoice.Trim())
-            ? "classic_pastor"
+            ? settings?.RecapVoice ?? "classic_pastor"
             : request.RecapVoice.Trim();
         var accentColor = string.IsNullOrWhiteSpace(request.AccentColor) || !SupportedAccentColors.Contains(request.AccentColor.Trim())
-            ? "teal_calm"
+            ? settings?.AccentColor ?? "teal_calm"
             : request.AccentColor.Trim();
-
-        var settings = await db.UserSettings.FindAsync([userId.Value], ct);
+        var listeningVoice = string.IsNullOrWhiteSpace(request.ListeningVoice) || !SupportedListeningVoices.Contains(request.ListeningVoice.Trim())
+            ? settings?.ListeningVoice ?? "warm_guide"
+            : request.ListeningVoice.Trim();
+        var listeningEnabled = request.ListeningEnabled ?? settings?.ListeningEnabled ?? false;
+        var listeningSpeed = NormalizeListeningSpeed(request.ListeningSpeed ?? settings?.ListeningSpeed ?? 1.0m);
         if (settings is null)
         {
             settings = new UserSettings
@@ -373,6 +402,9 @@ public static class ApiEndpoints
                 FontFamily = fontFamily,
                 RecapVoice = recapVoice,
                 AccentColor = accentColor,
+                ListeningEnabled = listeningEnabled,
+                ListeningVoice = listeningVoice,
+                ListeningSpeed = listeningSpeed,
                 UpdatedAt = DateTime.UtcNow
             };
             db.UserSettings.Add(settings);
@@ -385,11 +417,53 @@ public static class ApiEndpoints
             settings.FontFamily = fontFamily;
             settings.RecapVoice = recapVoice;
             settings.AccentColor = accentColor;
+            settings.ListeningEnabled = listeningEnabled;
+            settings.ListeningVoice = listeningVoice;
+            settings.ListeningSpeed = listeningSpeed;
             settings.UpdatedAt = DateTime.UtcNow;
         }
 
         await db.SaveChangesAsync(ct);
-        return Results.Ok(new UserSettingsDto(settings.Translation, settings.Pace.ToString().ToLowerInvariant(), settings.ReminderTime.ToString("HH:mm"), settings.FontFamily, settings.RecapVoice, settings.AccentColor));
+        return Results.Ok(new UserSettingsDto(
+            settings.Translation,
+            settings.Pace.ToString().ToLowerInvariant(),
+            settings.ReminderTime.ToString("HH:mm"),
+            settings.FontFamily,
+            settings.RecapVoice,
+            settings.AccentColor,
+            settings.ListeningEnabled,
+            settings.ListeningVoice,
+            NormalizeListeningSpeed(settings.ListeningSpeed)));
+    }
+
+    private static async Task<IResult> SynthesizeAudioAsync(AudioSynthesizeRequest request, IAudioSynthesisService audioService, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
+    {
+        var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
+        if (userId is null) return Results.Unauthorized();
+
+        var text = (request.Text ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return Results.BadRequest("Text is required.");
+        }
+
+        var voice = string.IsNullOrWhiteSpace(request.Voice) ? "warm_guide" : request.Voice.Trim();
+        if (!SupportedListeningVoices.Contains(voice))
+        {
+            voice = "warm_guide";
+        }
+
+        var speed = NormalizeListeningSpeed(request.Speed ?? 1.0m);
+
+        try
+        {
+            var audio = await audioService.SynthesizeAsync(text, voice, speed, ct);
+            return Results.File(audio, "audio/mpeg", enableRangeProcessing: false);
+        }
+        catch (Exception)
+        {
+            return Results.Problem("Unable to synthesize audio right now.", statusCode: StatusCodes.Status502BadGateway);
+        }
     }
 
     private static async Task<Plan?> GetActivePlanAsync(AppDbContext db, Guid userId, CancellationToken ct)
@@ -464,5 +538,10 @@ public static class ApiEndpoints
         }
 
         return $"Today, {day.Theme.ToLowerInvariant()} invites you to keep walking with Jesus one faithful step at a time.";
+    }
+
+    private static decimal NormalizeListeningSpeed(decimal value)
+    {
+        return Math.Round(Math.Clamp(value, 0.75m, 1.50m), 2);
     }
 }

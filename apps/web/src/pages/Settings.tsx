@@ -5,7 +5,7 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { api } from "../lib/api";
-import type { Translation, Pace, RecapVoice } from "../lib/types";
+import type { Translation, Pace, RecapVoice, ListeningVoice } from "../lib/types";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import {
@@ -30,6 +30,9 @@ export function Settings() {
   const [fontFamily, setFontFamily] = useState(getSavedFontPreference());
   const [recapVoice, setRecapVoice] = useState<RecapVoice>("classic_pastor");
   const [accentColor, setAccentColor] = useState(getSavedAccentPreference());
+  const [listeningEnabled, setListeningEnabled] = useState(false);
+  const [listeningVoice, setListeningVoice] = useState<ListeningVoice>("warm_guide");
+  const [listeningSpeed, setListeningSpeed] = useState(1.0);
   const [availableTranslations, setAvailableTranslations] = useState<string[]>(DEFAULT_TRANSLATIONS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -63,6 +66,9 @@ export function Settings() {
       applyFontPreference(serverFont);
       saveFontPreference(serverFont);
       setRecapVoice((data.recapVoice as RecapVoice) || "classic_pastor");
+      setListeningEnabled(Boolean(data.listeningEnabled));
+      setListeningVoice((data.listeningVoice as ListeningVoice) || "warm_guide");
+      setListeningSpeed(data.listeningSpeed ?? 1.0);
       const serverAccent = data.accentColor || getSavedAccentPreference();
       setAccentColor(serverAccent);
       applyAccentPreference(serverAccent);
@@ -78,7 +84,17 @@ export function Settings() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await api.updateSettings({ translation, pace, reminderTime, fontFamily, recapVoice, accentColor });
+      await api.updateSettings({
+        translation,
+        pace,
+        reminderTime,
+        fontFamily,
+        recapVoice,
+        accentColor,
+        listeningEnabled,
+        listeningVoice,
+        listeningSpeed
+      });
       applyFontPreference(fontFamily);
       saveFontPreference(fontFamily);
       applyAccentPreference(accentColor);
@@ -336,6 +352,60 @@ export function Settings() {
                     title={option.label}
                   />
                 ))}
+              </div>
+            </div>
+
+            <div className="glass p-4 rounded-xl border border-glass-border space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Listening mode</p>
+                  <p className="text-xs text-foreground-subtle">Read passages and recap aloud.</p>
+                </div>
+                <button
+                  onClick={() => setListeningEnabled((v) => !v)}
+                  className={`px-4 py-2 rounded-full text-xs border transition-all ${
+                    listeningEnabled
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "glass border-glass-border text-foreground"
+                  }`}
+                >
+                  {listeningEnabled ? "Enabled" : "Disabled"}
+                </button>
+              </div>
+
+              <div>
+                <label htmlFor="listening-voice" className="block text-sm font-medium text-foreground mb-2">
+                  Voice style
+                </label>
+                <select
+                  id="listening-voice"
+                  value={listeningVoice}
+                  onChange={(e) => setListeningVoice(e.target.value as ListeningVoice)}
+                  className="w-full p-3.5 rounded-xl glass border border-glass-border focus:ring-2 focus:ring-primary focus:border-primary transition-all text-foreground bg-input-background"
+                >
+                  <option value="warm_guide">Warm Guide</option>
+                  <option value="calm_narrator">Calm Narrator</option>
+                  <option value="pastoral">Pastoral</option>
+                  <option value="youthful">Youthful</option>
+                  <option value="classic">Classic</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="listening-speed" className="block text-sm font-medium text-foreground mb-2">
+                  Playback speed
+                </label>
+                <select
+                  id="listening-speed"
+                  value={listeningSpeed}
+                  onChange={(e) => setListeningSpeed(Number(e.target.value))}
+                  className="w-full p-3.5 rounded-xl glass border border-glass-border focus:ring-2 focus:ring-primary focus:border-primary transition-all text-foreground bg-input-background"
+                >
+                  <option value={0.8}>0.8x</option>
+                  <option value={1.0}>1.0x</option>
+                  <option value={1.15}>1.15x</option>
+                  <option value={1.3}>1.3x</option>
+                </select>
               </div>
             </div>
 

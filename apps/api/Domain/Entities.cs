@@ -23,6 +23,9 @@ public sealed class UserSettings
     [MaxLength(80)] public string FontFamily { get; set; } = "Roboto";
     [MaxLength(40)] public string RecapVoice { get; set; } = "classic_pastor";
     [MaxLength(40)] public string AccentColor { get; set; } = "teal_calm";
+    public bool ListeningEnabled { get; set; }
+    [MaxLength(40)] public string ListeningVoice { get; set; } = "warm_guide";
+    public decimal ListeningSpeed { get; set; } = 1.0m;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public User? User { get; set; }

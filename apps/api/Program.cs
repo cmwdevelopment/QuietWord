@@ -27,6 +27,11 @@ builder.Services.AddHttpClient("bible-api", client =>
     client.BaseAddress = new Uri("https://bible-api.com");
     client.Timeout = TimeSpan.FromSeconds(15);
 });
+builder.Services.AddHttpClient("openai-tts", client =>
+{
+    client.BaseAddress = new Uri("https://api.openai.com");
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -38,6 +43,7 @@ builder.Services.AddSingleton<IChunkingService, ChunkingService>();
 builder.Services.AddScoped<PlanSeeder>();
 builder.Services.AddScoped<UserBootstrapper>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAudioSynthesisService, OpenAiAudioSynthesisService>();
 
 var app = builder.Build();
 

@@ -23,6 +23,9 @@ public sealed class UserBootstrapper(AppDbContext db)
                 FontFamily = "Roboto",
                 RecapVoice = "classic_pastor",
                 AccentColor = "teal_calm",
+                ListeningEnabled = false,
+                ListeningVoice = "warm_guide",
+                ListeningSpeed = 1.0m,
                 UpdatedAt = DateTime.UtcNow
             });
         }

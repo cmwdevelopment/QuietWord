@@ -30,6 +30,9 @@ let mockState = {
     fontFamily: "Roboto",
     recapVoice: "classic_pastor" as const,
     accentColor: "teal_calm",
+    listeningEnabled: false,
+    listeningVoice: "warm_guide" as const,
+    listeningSpeed: 1.0,
   },
   resume: {
     section: "John" as "John" | "Psalm",
@@ -161,6 +164,7 @@ class MockApiClient {
       supportedTranslations: DEFAULT_TRANSLATIONS,
       supportedRecapVoices: ["classic_pastor", "gen_z", "poetic", "coach", "scholar"],
       supportedAccentColors: ["teal_calm", "sage_mist", "sky_blue", "lavender_hush", "rose_dawn", "sand_warm"],
+      supportedListeningVoices: ["warm_guide", "calm_narrator", "pastoral", "youthful", "classic"],
       translationMicrocopy: "More translations coming as licensing allows.",
     };
   }

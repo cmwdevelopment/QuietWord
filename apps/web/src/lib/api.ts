@@ -155,6 +155,27 @@ class ApiClient {
       body: JSON.stringify(payload),
     });
   }
+
+  async synthesizeAudio(payload: { text: string; voice?: string; speed?: number }): Promise<Blob> {
+    if (config.isDemoMode) {
+      throw new Error("Audio synthesis is unavailable in demo mode.");
+    }
+
+    const url = `${this.baseUrl}/api/audio/synthesize`;
+    const response = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const bodyText = await response.text();
+      throw new Error(bodyText || `API Error: ${response.status}`);
+    }
+
+    return response.blob();
+  }
 }
 
 export const api = new ApiClient(config.apiBaseUrl);

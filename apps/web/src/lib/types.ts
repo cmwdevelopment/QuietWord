@@ -5,6 +5,7 @@ export type Pace = "short" | "standard";
 export type Section = "John" | "Psalm";
 export type NoteType = "Question" | "Promise" | "Conviction" | "Action" | "Comfort";
 export type RecapVoice = "classic_pastor" | "gen_z" | "poetic" | "coach" | "scholar";
+export type ListeningVoice = "warm_guide" | "calm_narrator" | "pastoral" | "youthful" | "classic";
 
 export interface Plan {
   planId: string;
@@ -21,6 +22,9 @@ export interface Settings {
   fontFamily?: string;
   recapVoice?: RecapVoice;
   accentColor?: string;
+  listeningEnabled?: boolean;
+  listeningVoice?: ListeningVoice;
+  listeningSpeed?: number;
 }
 
 export interface TodayReading {
@@ -62,6 +66,7 @@ export interface BootstrapData {
   supportedTranslations: Translation[];
   supportedRecapVoices: RecapVoice[];
   supportedAccentColors?: string[];
+  supportedListeningVoices?: ListeningVoice[];
   translationMicrocopy: string;
 }
 

@@ -25,6 +25,10 @@ export function Reader() {
   const [isComplete, setIsComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
   const sectionName = section === "john" ? "John" : "Psalm";
   const sectionDisplay = section === "john" ? "Gospel of John" : "Psalm";
@@ -37,6 +41,17 @@ export function Reader() {
   useEffect(() => {
     void loadData();
   }, [section]);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -209,6 +224,66 @@ export function Reader() {
     }
   };
 
+  const buildListeningScript = () => {
+    if (!passage || !bootstrap) return "";
+
+    const header = `${sectionDisplay}. ${passage.ref}. ${passage.translation} translation.`;
+    const scripture = passage.verses.map((v) => `${v.ref}. ${v.text}`).join(" ");
+    const recap = section === "psalm" && bootstrap.today.dailyRecap
+      ? `Today's recap. ${bootstrap.today.dailyRecap}`
+      : "";
+
+    return `${header} ${scripture} ${recap}`.trim();
+  };
+
+  const handlePlayListening = async () => {
+    if (!bootstrap?.settings.listeningEnabled) {
+      toast.info("Enable Listening mode in Settings first.");
+      return;
+    }
+
+    if (audioRef.current && isPlayingAudio) {
+      audioRef.current.pause();
+      setIsPlayingAudio(false);
+      return;
+    }
+
+    if (audioRef.current && audioUrl) {
+      void audioRef.current.play();
+      setIsPlayingAudio(true);
+      return;
+    }
+
+    const script = buildListeningScript();
+    if (!script) return;
+
+    setIsSynthesizingAudio(true);
+    try {
+      const blob = await api.synthesizeAudio({
+        text: script,
+        voice: bootstrap.settings.listeningVoice,
+        speed: bootstrap.settings.listeningSpeed,
+      });
+
+      const nextUrl = URL.createObjectURL(blob);
+      setAudioUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return nextUrl;
+      });
+
+      if (audioRef.current) {
+        audioRef.current.src = nextUrl;
+        await audioRef.current.play();
+        setIsPlayingAudio(true);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Listening audio is unavailable right now.");
+    } finally {
+      setIsSynthesizingAudio(false);
+    }
+  };
+
   if (isLoading) {
     return <LoadingSpinner message="Loading passage..." />;
   }
@@ -343,6 +418,15 @@ export function Reader() {
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-secondary rounded-full">
                 <span className="text-xs font-medium text-foreground-muted uppercase tracking-wide">{passage.translation}</span>
               </div>
+              <div className="pt-1">
+                <button
+                  onClick={() => void handlePlayListening()}
+                  disabled={isSynthesizingAudio}
+                  className="px-4 py-2 rounded-full glass border border-glass-border text-sm text-foreground hover:bg-glass-highlight disabled:opacity-60"
+                >
+                  {isSynthesizingAudio ? "Preparing audio..." : isPlayingAudio ? "Pause listening" : "Play listening"}
+                </button>
+              </div>
             </div>
 
             <div className="glass-strong p-12 rounded-3xl shadow-lg relative overflow-hidden group">
@@ -373,6 +457,13 @@ export function Reader() {
             />
           </div>
         )}
+        <audio
+          ref={audioRef}
+          onEnded={() => setIsPlayingAudio(false)}
+          onPause={() => setIsPlayingAudio(false)}
+          onPlay={() => setIsPlayingAudio(true)}
+          hidden
+        />
       </div>
     </div>
   );
