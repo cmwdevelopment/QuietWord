@@ -15,21 +15,23 @@ export default function App() {
     applyFontPreference(getSavedFontPreference());
     applyAccentPreference(getSavedAccentPreference());
 
-    void (async () => {
-      try {
-        const settings = await api.getSettings();
-        if (settings.fontFamily) {
-          applyFontPreference(settings.fontFamily);
-          saveFontPreference(settings.fontFamily);
+    if (!window.location.pathname.startsWith("/signin")) {
+      void (async () => {
+        try {
+          const settings = await api.getSettings();
+          if (settings.fontFamily) {
+            applyFontPreference(settings.fontFamily);
+            saveFontPreference(settings.fontFamily);
+          }
+          if (settings.accentColor) {
+            applyAccentPreference(settings.accentColor);
+            saveAccentPreference(settings.accentColor);
+          }
+        } catch {
+          // Keep local fallback when API is unavailable.
         }
-        if (settings.accentColor) {
-          applyAccentPreference(settings.accentColor);
-          saveAccentPreference(settings.accentColor);
-        }
-      } catch {
-        // Keep local fallback when API is unavailable.
-      }
-    })();
+      })();
+    }
 
     const onToastClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;

@@ -14,6 +14,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<DailyCompletion> DailyCompletions => Set<DailyCompletion>();
     public DbSet<ThreadNote> ThreadNotes => Set<ThreadNote>();
     public DbSet<RecallItem> RecallItems => Set<RecallItem>();
+    public DbSet<MagicLinkToken> MagicLinkTokens => Set<MagicLinkToken>();
+    public DbSet<Session> Sessions => Set<Session>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -21,6 +23,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         {
             b.ToTable("users");
             b.HasKey(x => x.Id);
+            b.HasIndex(x => x.Email).IsUnique();
+            b.Property(x => x.Email).HasColumnName("email");
         });
 
         modelBuilder.Entity<UserSettings>(b =>
@@ -124,6 +128,30 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             b.Property(x => x.AnsweredAt).HasColumnName("answered_at");
             b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.HasIndex(x => x.UserId).HasFilter("answered_at IS NULL");
+        });
+
+        modelBuilder.Entity<MagicLinkToken>(b =>
+        {
+            b.ToTable("magic_link_tokens");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Email).HasColumnName("email");
+            b.Property(x => x.TokenHash).HasColumnName("token_hash");
+            b.Property(x => x.ExpiresAt).HasColumnName("expires_at");
+            b.Property(x => x.UsedAt).HasColumnName("used_at");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.HasIndex(x => x.TokenHash).IsUnique();
+        });
+
+        modelBuilder.Entity<Session>(b =>
+        {
+            b.ToTable("sessions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.TokenHash).HasColumnName("token_hash");
+            b.Property(x => x.ExpiresAt).HasColumnName("expires_at");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.HasIndex(x => x.TokenHash).IsUnique();
+            b.HasIndex(x => x.UserId);
         });
     }
 }

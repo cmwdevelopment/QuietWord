@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.AspNetCore.HttpOverrides;
 using System.Text.Json.Serialization;
 using QuietWord.Api.Data;
 using QuietWord.Api.Endpoints;
@@ -17,7 +18,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("web", policy =>
     {
         var origin = builder.Configuration["WEB_ORIGIN"] ?? "http://localhost:5173";
-        policy.WithOrigins(origin).AllowAnyHeader().AllowAnyMethod();
+        policy.WithOrigins(origin).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
     });
 });
 builder.Services.AddMemoryCache();
@@ -35,6 +36,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddScoped<ITextProvider, BibleApiTextProvider>();
 builder.Services.AddSingleton<IChunkingService, ChunkingService>();
 builder.Services.AddScoped<PlanSeeder>();
+builder.Services.AddScoped<UserBootstrapper>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
 
@@ -43,6 +46,10 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 app.UseCors("web");
 
 using (var scope = app.Services.CreateScope())

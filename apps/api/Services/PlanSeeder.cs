@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using QuietWord.Api.Contracts;
 using QuietWord.Api.Data;
 using QuietWord.Api.Domain;
 
@@ -63,57 +62,6 @@ public sealed class PlanSeeder(ILogger<PlanSeeder> logger, IWebHostEnvironment e
                 PsalmRef = day.PsalmRef,
                 Theme = day.Theme,
                 RecapsJson = System.Text.Json.JsonSerializer.Serialize(day.Recaps ?? BuildFallbackRecaps(day.Theme))
-            });
-        }
-
-        var user = await db.Users.SingleOrDefaultAsync(x => x.Id == DemoUser.UserId, cancellationToken);
-        if (user is null)
-        {
-            user = new User { Id = DemoUser.UserId, Name = "Demo User" };
-            db.Users.Add(user);
-        }
-
-        var settings = await db.UserSettings.FindAsync([DemoUser.UserId], cancellationToken);
-        if (settings is null)
-        {
-            db.UserSettings.Add(new UserSettings
-            {
-                UserId = DemoUser.UserId,
-                Translation = "WEB",
-                Pace = ReadingPace.Standard,
-                ReminderTime = new TimeOnly(7, 30),
-                FontFamily = "Roboto",
-                RecapVoice = "classic_pastor",
-                AccentColor = "teal_calm"
-            });
-        }
-
-        var userPlan = await db.UserPlans.FindAsync([DemoUser.UserId, plan.Id], cancellationToken);
-        if (userPlan is null)
-        {
-            db.UserPlans.Add(new UserPlan
-            {
-                UserId = DemoUser.UserId,
-                PlanId = plan.Id,
-                IsActive = true
-            });
-        }
-        else
-        {
-            userPlan.IsActive = true;
-        }
-
-        var state = await db.ReadingStates.FindAsync([DemoUser.UserId, plan.Id], cancellationToken);
-        if (state is null)
-        {
-            db.ReadingStates.Add(new ReadingState
-            {
-                UserId = DemoUser.UserId,
-                PlanId = plan.Id,
-                CurrentDayIndex = 1,
-                Section = ReadingSection.None,
-                LastRef = string.Empty,
-                LastChunkIndex = 0
             });
         }
 

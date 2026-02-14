@@ -31,6 +31,7 @@ export function Settings() {
   const [accentColor, setAccentColor] = useState(getSavedAccentPreference());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const translations: { value: Translation; label: string }[] = [
@@ -84,6 +85,19 @@ export function Settings() {
       toast.error("Failed to save settings. Please try again.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await api.logout();
+      toast.success("Signed out");
+      navigate("/signin", { replace: true });
+    } catch {
+      toast.error("Failed to sign out. Please try again.");
+    } finally {
+      setIsSigningOut(false);
     }
   };
 
@@ -341,6 +355,13 @@ export function Settings() {
                   "Save changes"
                 )}
               </PrimaryButton>
+              <button
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="mt-3 w-full px-6 py-3 rounded-xl border border-glass-border glass hover:bg-glass-highlight text-sm text-foreground transition-all disabled:opacity-50"
+              >
+                {isSigningOut ? "Signing out..." : "Sign out"}
+              </button>
             </div>
           </div>
         </motion.div>

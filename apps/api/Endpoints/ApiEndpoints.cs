@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using QuietWord.Api.Contracts;
 using QuietWord.Api.Data;
 using QuietWord.Api.Domain;
@@ -13,20 +13,18 @@ public static class ApiEndpoints
     private static readonly string[] SupportedAccentColors = ["teal_calm", "sage_mist", "sky_blue", "lavender_hush", "rose_dawn", "sand_warm"];
     private static readonly HashSet<string> SupportedFonts = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Inter",
-        "Roboto",
-        "Open Sans",
-        "Lato",
-        "Montserrat",
-        "Merriweather",
-        "Lora",
-        "PT Serif",
-        "Playfair Display"
+        "Inter", "Roboto", "Open Sans", "Lato", "Montserrat", "Merriweather", "Lora", "PT Serif", "Playfair Display"
     };
 
     public static RouteGroupBuilder MapQuietWordApi(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api");
+
+        group.MapPost("/auth/login", LoginAsync);
+        group.MapPost("/auth/request-link", RequestMagicLinkAsync);
+        group.MapPost("/auth/verify-link", VerifyMagicLinkAsync);
+        group.MapGet("/auth/me", GetMeAsync);
+        group.MapPost("/auth/logout", LogoutAsync);
 
         group.MapGet("/bootstrap", GetBootstrapAsync);
         group.MapGet("/day/today", GetTodayAsync);
@@ -43,20 +41,53 @@ public static class ApiEndpoints
         return group;
     }
 
-    private static async Task<IResult> GetBootstrapAsync(AppDbContext db, CancellationToken ct)
+    private static async Task<IResult> LoginAsync(SimpleLoginRequest request, IAuthService authService, HttpResponse response, CancellationToken ct)
     {
-        var planData = await GetActivePlanAndStateAsync(db, ct);
+        var me = await authService.SignInAsync(request.Email, response, ct);
+        return me is null ? Results.BadRequest("Email is required.") : Results.Ok(me);
+    }
+
+    private static async Task<IResult> RequestMagicLinkAsync(RequestMagicLinkRequest request, IAuthService authService, CancellationToken ct)
+    {
+        var result = await authService.RequestMagicLinkAsync(request.Email, ct);
+        return Results.Ok(result);
+    }
+
+    private static async Task<IResult> VerifyMagicLinkAsync(VerifyMagicLinkRequest request, IAuthService authService, HttpResponse response, CancellationToken ct)
+    {
+        var me = await authService.VerifyMagicLinkAsync(request.Email, request.Token, response, ct);
+        return me is null ? Results.Unauthorized() : Results.Ok(me);
+    }
+
+    private static async Task<IResult> GetMeAsync(IAuthService authService, HttpRequest request, CancellationToken ct)
+    {
+        var me = await authService.GetCurrentUserAsync(request, ct);
+        return me is null ? Results.Unauthorized() : Results.Ok(me);
+    }
+
+    private static async Task<IResult> LogoutAsync(IAuthService authService, HttpRequest request, HttpResponse response, CancellationToken ct)
+    {
+        await authService.LogoutAsync(request, response, ct);
+        return Results.Ok(new { loggedOut = true });
+    }
+
+    private static async Task<IResult> GetBootstrapAsync(AppDbContext db, IAuthService authService, HttpRequest request, CancellationToken ct)
+    {
+        var userId = await authService.GetCurrentUserIdAsync(request, ct);
+        if (userId is null) return Results.Unauthorized();
+
+        var planData = await GetActivePlanAndStateAsync(db, userId.Value, ct);
         if (planData is null) return Results.NotFound("No active plan was found.");
 
         var (plan, state) = planData.Value;
         var today = await db.PlanDays.SingleAsync(x => x.PlanId == plan.Id && x.DayIndex == state.CurrentDayIndex, ct);
-        var settings = await db.UserSettings.FindAsync([DemoUser.UserId], ct) ?? new UserSettings();
+        var settings = await db.UserSettings.FindAsync([userId.Value], ct) ?? new UserSettings { UserId = userId.Value };
         var recapVoice = SupportedRecapVoices.Contains(settings.RecapVoice) ? settings.RecapVoice : "classic_pastor";
         var accentColor = SupportedAccentColors.Contains(settings.AccentColor) ? settings.AccentColor : "teal_calm";
         var dailyRecap = ResolveRecap(today, recapVoice);
 
         var recentCompletion = await db.DailyCompletions
-            .Where(x => x.UserId == DemoUser.UserId && x.PlanId == plan.Id)
+            .Where(x => x.UserId == userId.Value && x.PlanId == plan.Id)
             .OrderByDescending(x => x.DayIndex)
             .Take(7)
             .ToListAsync(ct);
@@ -76,10 +107,9 @@ public static class ApiEndpoints
 
         RecallPendingSummary? pendingRecall = null;
         var pending = await db.RecallItems
-            .Where(x => x.UserId == DemoUser.UserId && x.AnsweredAt == null)
+            .Where(x => x.UserId == userId.Value && x.AnsweredAt == null)
             .OrderBy(x => x.CreatedAt)
             .FirstOrDefaultAsync(ct);
-
         if (pending is not null)
         {
             pendingRecall = new RecallPendingSummary(pending.Id, pending.DayIndex, pending.Choices);
@@ -94,8 +124,13 @@ public static class ApiEndpoints
         var response = new BootstrapResponse(
             new PlanSummary(plan.Id, plan.Slug, plan.Name, await db.PlanDays.CountAsync(x => x.PlanId == plan.Id, ct), state.CurrentDayIndex),
             new UserSettingsDto(settings.Translation, settings.Pace.ToString().ToLowerInvariant(), settings.ReminderTime.ToString("HH:mm"), settings.FontFamily, recapVoice, accentColor),
-            new TodaySummary(today.DayIndex, today.JohnRef, today.PsalmRef, today.Theme, dailyRecap,
-                await db.DailyCompletions.AnyAsync(x => x.UserId == DemoUser.UserId && x.PlanId == plan.Id && x.DayIndex == state.CurrentDayIndex, ct),
+            new TodaySummary(
+                today.DayIndex,
+                today.JohnRef,
+                today.PsalmRef,
+                today.Theme,
+                dailyRecap,
+                await db.DailyCompletions.AnyAsync(x => x.UserId == userId.Value && x.PlanId == plan.Id && x.DayIndex == state.CurrentDayIndex, ct),
                 streak,
                 graceStreak),
             resume,
@@ -108,31 +143,40 @@ public static class ApiEndpoints
         return Results.Ok(response);
     }
 
-    private static async Task<IResult> GetTodayAsync(AppDbContext db, CancellationToken ct)
+    private static async Task<IResult> GetTodayAsync(AppDbContext db, IAuthService authService, HttpRequest request, CancellationToken ct)
     {
-        var planData = await GetActivePlanAndStateAsync(db, ct);
-        if (planData is null) return Results.NotFound("No active plan was found.");
-        var (plan, state) = planData.Value;
+        var userId = await authService.GetCurrentUserIdAsync(request, ct);
+        if (userId is null) return Results.Unauthorized();
 
+        var planData = await GetActivePlanAndStateAsync(db, userId.Value, ct);
+        if (planData is null) return Results.NotFound("No active plan was found.");
+
+        var (plan, state) = planData.Value;
         var day = await db.PlanDays.SingleOrDefaultAsync(x => x.PlanId == plan.Id && x.DayIndex == state.CurrentDayIndex, ct);
         if (day is null) return Results.NotFound("No day is available for current index.");
 
         return Results.Ok(new DayTodayResponse(day.DayIndex, day.JohnRef, day.PsalmRef, day.Theme));
     }
 
-    private static async Task<IResult> GetPassageAsync(string @ref, string? translation, ITextProvider textProvider, CancellationToken ct)
+    private static async Task<IResult> GetPassageAsync(string @ref, string? translation, ITextProvider textProvider, IAuthService authService, HttpRequest request, CancellationToken ct)
     {
+        var userId = await authService.GetCurrentUserIdAsync(request, ct);
+        if (userId is null) return Results.Unauthorized();
+
         if (string.IsNullOrWhiteSpace(@ref)) return Results.BadRequest("Missing ref query parameter.");
         var value = await textProvider.GetPassageAsync(@ref.Trim(), string.IsNullOrWhiteSpace(translation) ? "WEB" : translation, ct);
         return Results.Ok(value);
     }
 
-    private static async Task<IResult> SaveResumeAsync(SaveResumeRequest request, AppDbContext db, CancellationToken ct)
+    private static async Task<IResult> SaveResumeAsync(SaveResumeRequest request, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
     {
-        var planData = await GetActivePlanAndStateAsync(db, ct);
-        if (planData is null) return Results.NotFound("No active plan was found.");
-        var (plan, state) = planData.Value;
+        var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
+        if (userId is null) return Results.Unauthorized();
 
+        var planData = await GetActivePlanAndStateAsync(db, userId.Value, ct);
+        if (planData is null) return Results.NotFound("No active plan was found.");
+
+        var (_, state) = planData.Value;
         state.Section = request.Section;
         state.LastRef = request.Ref.Trim();
         state.LastChunkIndex = Math.Max(request.ChunkIndex, 0);
@@ -145,16 +189,19 @@ public static class ApiEndpoints
         return Results.Ok(new { saved = true });
     }
 
-    private static async Task<IResult> CreateNoteAsync(CreateNoteRequest request, AppDbContext db, CancellationToken ct)
+    private static async Task<IResult> CreateNoteAsync(CreateNoteRequest request, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
     {
-        var planData = await GetActivePlanAsync(db, ct);
-        if (planData is null) return Results.NotFound("No active plan was found.");
+        var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
+        if (userId is null) return Results.Unauthorized();
+
+        var plan = await GetActivePlanAsync(db, userId.Value, ct);
+        if (plan is null) return Results.NotFound("No active plan was found.");
 
         var note = new ThreadNote
         {
             Id = Guid.NewGuid(),
-            UserId = DemoUser.UserId,
-            PlanId = planData.Id,
+            UserId = userId.Value,
+            PlanId = plan.Id,
             NoteType = request.NoteType,
             Ref = request.Ref.Trim(),
             Body = request.Body.Trim(),
@@ -167,11 +214,14 @@ public static class ApiEndpoints
         return Results.Ok(new NoteDto(note.Id, note.NoteType.ToString(), note.Ref, note.Body, note.CreatedAt));
     }
 
-    private static async Task<IResult> GetNotesAsync(int? limit, AppDbContext db, CancellationToken ct)
+    private static async Task<IResult> GetNotesAsync(int? limit, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
     {
+        var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
+        if (userId is null) return Results.Unauthorized();
+
         var size = Math.Clamp(limit ?? 10, 1, 50);
         var notes = await db.ThreadNotes
-            .Where(x => x.UserId == DemoUser.UserId)
+            .Where(x => x.UserId == userId.Value)
             .OrderByDescending(x => x.CreatedAt)
             .Take(size)
             .Select(x => new NoteDto(x.Id, x.NoteType.ToString(), x.Ref, x.Body, x.CreatedAt))
@@ -180,23 +230,26 @@ public static class ApiEndpoints
         return Results.Ok(notes);
     }
 
-    private static async Task<IResult> CompleteDayAsync(AppDbContext db, CancellationToken ct)
+    private static async Task<IResult> CompleteDayAsync(AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
     {
-        var planData = await GetActivePlanAndStateAsync(db, ct);
-        if (planData is null) return Results.NotFound("No active plan was found.");
-        var (plan, state) = planData.Value;
+        var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
+        if (userId is null) return Results.Unauthorized();
 
+        var planData = await GetActivePlanAndStateAsync(db, userId.Value, ct);
+        if (planData is null) return Results.NotFound("No active plan was found.");
+
+        var (plan, state) = planData.Value;
         var currentDay = state.CurrentDayIndex;
 
         var completionExists = await db.DailyCompletions
-            .AnyAsync(x => x.UserId == DemoUser.UserId && x.PlanId == plan.Id && x.DayIndex == currentDay, ct);
+            .AnyAsync(x => x.UserId == userId.Value && x.PlanId == plan.Id && x.DayIndex == currentDay, ct);
 
         if (!completionExists)
         {
             db.DailyCompletions.Add(new DailyCompletion
             {
                 Id = Guid.NewGuid(),
-                UserId = DemoUser.UserId,
+                UserId = userId.Value,
                 PlanId = plan.Id,
                 DayIndex = currentDay,
                 CompletedAt = DateTime.UtcNow
@@ -204,7 +257,7 @@ public static class ApiEndpoints
         }
 
         var createdRecall = false;
-        var existingRecall = await db.RecallItems.AnyAsync(x => x.UserId == DemoUser.UserId && x.PlanId == plan.Id && x.DayIndex == currentDay, ct);
+        var existingRecall = await db.RecallItems.AnyAsync(x => x.UserId == userId.Value && x.PlanId == plan.Id && x.DayIndex == currentDay, ct);
         if (!existingRecall)
         {
             var day = await db.PlanDays.SingleOrDefaultAsync(x => x.PlanId == plan.Id && x.DayIndex == currentDay, ct);
@@ -213,7 +266,7 @@ public static class ApiEndpoints
                 db.RecallItems.Add(new RecallItem
                 {
                     Id = Guid.NewGuid(),
-                    UserId = DemoUser.UserId,
+                    UserId = userId.Value,
                     PlanId = plan.Id,
                     DayIndex = currentDay,
                     CorrectChoiceIndex = 0,
@@ -239,10 +292,13 @@ public static class ApiEndpoints
         return Results.Ok(new CompleteDayResponse(currentDay, state.CurrentDayIndex, createdRecall));
     }
 
-    private static async Task<IResult> GetPendingRecallAsync(AppDbContext db, CancellationToken ct)
+    private static async Task<IResult> GetPendingRecallAsync(AppDbContext db, IAuthService authService, HttpRequest request, CancellationToken ct)
     {
+        var userId = await authService.GetCurrentUserIdAsync(request, ct);
+        if (userId is null) return Results.Unauthorized();
+
         var pending = await db.RecallItems
-            .Where(x => x.UserId == DemoUser.UserId && x.AnsweredAt == null)
+            .Where(x => x.UserId == userId.Value && x.AnsweredAt == null)
             .OrderBy(x => x.CreatedAt)
             .FirstOrDefaultAsync(ct);
 
@@ -251,9 +307,12 @@ public static class ApiEndpoints
             : Results.Ok(new RecallPendingResponse(pending.Id, pending.DayIndex, pending.Choices));
     }
 
-    private static async Task<IResult> AnswerRecallAsync(RecallAnswerRequest request, AppDbContext db, CancellationToken ct)
+    private static async Task<IResult> AnswerRecallAsync(RecallAnswerRequest request, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
     {
-        var recall = await db.RecallItems.SingleOrDefaultAsync(x => x.Id == request.RecallId && x.UserId == DemoUser.UserId, ct);
+        var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
+        if (userId is null) return Results.Unauthorized();
+
+        var recall = await db.RecallItems.SingleOrDefaultAsync(x => x.Id == request.RecallId && x.UserId == userId.Value, ct);
         if (recall is null) return Results.NotFound("Recall item not found.");
 
         recall.SelectedChoiceIndex = request.SelectedChoiceIndex;
@@ -263,11 +322,14 @@ public static class ApiEndpoints
         return Results.Ok(new { saved = true, correct = request.SelectedChoiceIndex == recall.CorrectChoiceIndex });
     }
 
-    private static async Task<IResult> GetSettingsAsync(AppDbContext db, CancellationToken ct)
+    private static async Task<IResult> GetSettingsAsync(AppDbContext db, IAuthService authService, HttpRequest request, CancellationToken ct)
     {
-        var settings = await db.UserSettings.FindAsync([DemoUser.UserId], ct) ?? new UserSettings
+        var userId = await authService.GetCurrentUserIdAsync(request, ct);
+        if (userId is null) return Results.Unauthorized();
+
+        var settings = await db.UserSettings.FindAsync([userId.Value], ct) ?? new UserSettings
         {
-            UserId = DemoUser.UserId,
+            UserId = userId.Value,
             Translation = "WEB",
             Pace = ReadingPace.Standard,
             ReminderTime = new TimeOnly(7, 30),
@@ -279,8 +341,11 @@ public static class ApiEndpoints
         return Results.Ok(new UserSettingsDto(settings.Translation, settings.Pace.ToString().ToLowerInvariant(), settings.ReminderTime.ToString("HH:mm"), settings.FontFamily, settings.RecapVoice, settings.AccentColor));
     }
 
-    private static async Task<IResult> SaveSettingsAsync(SaveSettingsRequest request, AppDbContext db, CancellationToken ct)
+    private static async Task<IResult> SaveSettingsAsync(SaveSettingsRequest request, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
     {
+        var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
+        if (userId is null) return Results.Unauthorized();
+
         var normalizedTranslation = SupportedTranslations.Contains(request.Translation.ToUpperInvariant())
             ? request.Translation.ToUpperInvariant()
             : "WEB";
@@ -296,12 +361,12 @@ public static class ApiEndpoints
             ? "teal_calm"
             : request.AccentColor.Trim();
 
-        var settings = await db.UserSettings.FindAsync([DemoUser.UserId], ct);
+        var settings = await db.UserSettings.FindAsync([userId.Value], ct);
         if (settings is null)
         {
             settings = new UserSettings
             {
-                UserId = DemoUser.UserId,
+                UserId = userId.Value,
                 Translation = normalizedTranslation,
                 Pace = pace,
                 ReminderTime = reminderTime,
@@ -327,10 +392,10 @@ public static class ApiEndpoints
         return Results.Ok(new UserSettingsDto(settings.Translation, settings.Pace.ToString().ToLowerInvariant(), settings.ReminderTime.ToString("HH:mm"), settings.FontFamily, settings.RecapVoice, settings.AccentColor));
     }
 
-    private static async Task<Plan?> GetActivePlanAsync(AppDbContext db, CancellationToken ct)
+    private static async Task<Plan?> GetActivePlanAsync(AppDbContext db, Guid userId, CancellationToken ct)
     {
         var planId = await db.UserPlans
-            .Where(x => x.UserId == DemoUser.UserId && x.IsActive)
+            .Where(x => x.UserId == userId && x.IsActive)
             .Select(x => x.PlanId)
             .FirstOrDefaultAsync(ct);
 
@@ -338,17 +403,17 @@ public static class ApiEndpoints
         return await db.Plans.SingleAsync(x => x.Id == planId, ct);
     }
 
-    private static async Task<(Plan plan, ReadingState state)?> GetActivePlanAndStateAsync(AppDbContext db, CancellationToken ct)
+    private static async Task<(Plan plan, ReadingState state)?> GetActivePlanAndStateAsync(AppDbContext db, Guid userId, CancellationToken ct)
     {
-        var plan = await GetActivePlanAsync(db, ct);
+        var plan = await GetActivePlanAsync(db, userId, ct);
         if (plan is null) return null;
 
-        var state = await db.ReadingStates.FindAsync([DemoUser.UserId, plan.Id], ct);
+        var state = await db.ReadingStates.FindAsync([userId, plan.Id], ct);
         if (state is null)
         {
             state = new ReadingState
             {
-                UserId = DemoUser.UserId,
+                UserId = userId,
                 PlanId = plan.Id,
                 CurrentDayIndex = 1,
                 Section = ReadingSection.None,
@@ -360,15 +425,14 @@ public static class ApiEndpoints
             await db.SaveChangesAsync(ct);
         }
 
-        await AdvanceDayIfNeededAsync(db, plan, state, ct);
-
+        await AdvanceDayIfNeededAsync(db, userId, plan, state, ct);
         return (plan, state);
     }
 
-    private static async Task AdvanceDayIfNeededAsync(AppDbContext db, Plan plan, ReadingState state, CancellationToken ct)
+    private static async Task AdvanceDayIfNeededAsync(AppDbContext db, Guid userId, Plan plan, ReadingState state, CancellationToken ct)
     {
         var completionForCurrentDay = await db.DailyCompletions
-            .Where(x => x.UserId == DemoUser.UserId && x.PlanId == plan.Id && x.DayIndex == state.CurrentDayIndex)
+            .Where(x => x.UserId == userId && x.PlanId == plan.Id && x.DayIndex == state.CurrentDayIndex)
             .OrderByDescending(x => x.CompletedAt)
             .FirstOrDefaultAsync(ct);
 

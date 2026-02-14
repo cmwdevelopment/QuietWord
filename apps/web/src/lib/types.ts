@@ -121,3 +121,8 @@ export interface RecallAnswerResponse {
   saved: boolean;
   correct: boolean;
 }
+
+export interface AuthMe {
+  userId: string;
+  email: string;
+}

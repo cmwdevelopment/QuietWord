@@ -8,6 +8,7 @@ public sealed class User
 {
     public Guid Id { get; set; }
     [MaxLength(120)] public string Name { get; set; } = "Demo User";
+    [MaxLength(200)] public string Email { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public UserSettings? Settings { get; set; }
@@ -121,4 +122,23 @@ public sealed class RecallItem
         get => JsonSerializer.Deserialize<string[]>(ChoicesJson) ?? Array.Empty<string>();
         set => ChoicesJson = JsonSerializer.Serialize(value ?? Array.Empty<string>());
     }
+}
+
+public sealed class MagicLinkToken
+{
+    public Guid Id { get; set; }
+    [MaxLength(200)] public string Email { get; set; } = string.Empty;
+    [MaxLength(128)] public string TokenHash { get; set; } = string.Empty;
+    public DateTime ExpiresAt { get; set; }
+    public DateTime? UsedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class Session
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    [MaxLength(128)] public string TokenHash { get; set; } = string.Empty;
+    public DateTime ExpiresAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

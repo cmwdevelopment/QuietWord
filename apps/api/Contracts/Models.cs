@@ -2,11 +2,6 @@ using QuietWord.Api.Domain;
 
 namespace QuietWord.Api.Contracts;
 
-public static class DemoUser
-{
-    public static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-}
-
 public sealed record VerseDto(string Ref, string Text, int Chapter, int Verse);
 public sealed record PassageChunkDto(int ChunkIndex, string[] VerseRefs, string Text);
 public sealed record PassageResponse(string Ref, string Translation, VerseDto[] Verses, PassageChunkDto[] Chunks);
@@ -36,3 +31,9 @@ public sealed record CompleteDayResponse(int PreviousDayIndex, int NewCurrentDay
 public sealed record RecallPendingResponse(Guid RecallId, int DayIndex, string[] Choices);
 public sealed record RecallAnswerRequest(Guid RecallId, int SelectedChoiceIndex);
 public sealed record SaveSettingsRequest(string Translation, string Pace, string ReminderTime, string? FontFamily = null, string? RecapVoice = null, string? AccentColor = null);
+
+public sealed record RequestMagicLinkRequest(string Email);
+public sealed record RequestMagicLinkResponse(bool Sent, string? DevToken = null);
+public sealed record VerifyMagicLinkRequest(string Email, string Token);
+public sealed record SimpleLoginRequest(string Email);
+public sealed record AuthMeResponse(Guid UserId, string Email);

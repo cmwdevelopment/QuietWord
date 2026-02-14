@@ -13,6 +13,7 @@ import type {
   RecallAnswerResponse,
   Settings,
   TodayReading,
+  AuthMe,
 } from "./types";
 import { config } from "./config";
 import { mockApi } from "./mock-api";
@@ -31,6 +32,7 @@ class ApiClient {
     const url = `${this.baseUrl}/api${endpoint}`;
     const response = await fetch(url, {
       ...options,
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         ...options?.headers,
@@ -38,7 +40,13 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      if (response.status === 401 && !endpoint.startsWith("/auth/")) {
+        window.location.assign("/signin");
+      }
+
+      const bodyText = await response.text();
+      const message = bodyText || `${response.status} ${response.statusText}`;
+      throw new Error(`API Error: ${message}`);
     }
 
     // Handle 204 No Content
@@ -47,6 +55,24 @@ class ApiClient {
     }
 
     return response.json();
+  }
+
+  async login(email: string): Promise<AuthMe> {
+    if (config.isDemoMode) return { userId: "demo-user", email };
+    return this.request<AuthMe>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async me(): Promise<AuthMe> {
+    if (config.isDemoMode) return { userId: "demo-user", email: "demo@quietword.local" };
+    return this.request<AuthMe>("/auth/me");
+  }
+
+  async logout(): Promise<{ loggedOut: boolean }> {
+    if (config.isDemoMode) return { loggedOut: true };
+    return this.request<{ loggedOut: boolean }>("/auth/logout", { method: "POST" });
   }
 
   // Bootstrap - get all initial app data
