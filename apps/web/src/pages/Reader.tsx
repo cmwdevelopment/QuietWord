@@ -26,9 +26,11 @@ export function Reader() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
+  const [isAudioStarting, setIsAudioStarting] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const playAttemptRef = React.useRef(0);
 
   const sectionName = section === "john" ? "John" : "Psalm";
   const sectionDisplay = section === "john" ? "Gospel of John" : "Psalm";
@@ -249,8 +251,22 @@ export function Reader() {
     }
 
     if (audioRef.current && audioUrl) {
-      void audioRef.current.play();
-      setIsPlayingAudio(true);
+      const currentAttempt = ++playAttemptRef.current;
+      setIsAudioStarting(true);
+      try {
+        await audioRef.current.play();
+        if (playAttemptRef.current === currentAttempt) {
+          setIsPlayingAudio(true);
+        }
+      } catch (err) {
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
+          toast.error("Could not start playback.");
+        }
+      } finally {
+        if (playAttemptRef.current === currentAttempt) {
+          setIsAudioStarting(false);
+        }
+      }
       return;
     }
 
@@ -273,12 +289,27 @@ export function Reader() {
 
       if (audioRef.current) {
         audioRef.current.src = nextUrl;
-        await audioRef.current.play();
-        setIsPlayingAudio(true);
+        const currentAttempt = ++playAttemptRef.current;
+        setIsAudioStarting(true);
+        try {
+          await audioRef.current.play();
+          if (playAttemptRef.current === currentAttempt) {
+            setIsPlayingAudio(true);
+          }
+        } catch (err) {
+          if (!(err instanceof DOMException && err.name === "AbortError")) {
+            throw err;
+          }
+        } finally {
+          if (playAttemptRef.current === currentAttempt) {
+            setIsAudioStarting(false);
+          }
+        }
       }
     } catch (err) {
       console.error(err);
       toast.error("Listening audio is unavailable right now.");
+      setIsAudioStarting(false);
     } finally {
       setIsSynthesizingAudio(false);
     }
@@ -421,10 +452,10 @@ export function Reader() {
               <div className="pt-1">
                 <button
                   onClick={() => void handlePlayListening()}
-                  disabled={isSynthesizingAudio}
+                  disabled={isSynthesizingAudio || isAudioStarting}
                   className="px-4 py-2 rounded-full glass border border-glass-border text-sm text-foreground hover:bg-glass-highlight disabled:opacity-60"
                 >
-                  {isSynthesizingAudio ? "Preparing audio..." : isPlayingAudio ? "Pause listening" : "Play listening"}
+                  {isSynthesizingAudio ? "Preparing audio..." : isAudioStarting ? "Starting..." : isPlayingAudio ? "Pause listening" : "Play listening"}
                 </button>
               </div>
             </div>
