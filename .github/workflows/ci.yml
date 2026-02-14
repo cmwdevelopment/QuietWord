@@ -24,7 +24,7 @@ jobs:
         run: dotnet build apps/api/QuietWord.Api.csproj --configuration Release --no-restore
 
       - name: Run API tests
-        run: dotnet test tests/api-tests/QuietWord.Api.Tests.csproj --configuration Release --no-build
+        run: dotnet test tests/api-tests/QuietWord.Api.Tests.csproj --configuration Release
 
       - name: Setup Node
         uses: actions/setup-node@v4
