@@ -8,7 +8,6 @@ namespace QuietWord.Api.Endpoints;
 
 public static class ApiEndpoints
 {
-    private static readonly string[] SupportedTranslations = ["WEB", "KJV", "ASV", "BBE", "DARBY"];
     private static readonly string[] SupportedRecapVoices = ["classic_pastor", "gen_z", "poetic", "coach", "scholar"];
     private static readonly string[] SupportedAccentColors = ["teal_calm", "sage_mist", "sky_blue", "lavender_hush", "rose_dawn", "sand_warm"];
     private static readonly HashSet<string> SupportedFonts = new(StringComparer.OrdinalIgnoreCase)
@@ -71,7 +70,7 @@ public static class ApiEndpoints
         return Results.Ok(new { loggedOut = true });
     }
 
-    private static async Task<IResult> GetBootstrapAsync(AppDbContext db, IAuthService authService, HttpRequest request, CancellationToken ct)
+    private static async Task<IResult> GetBootstrapAsync(AppDbContext db, IAuthService authService, ITextProvider textProvider, HttpRequest request, CancellationToken ct)
     {
         var userId = await authService.GetCurrentUserIdAsync(request, ct);
         if (userId is null) return Results.Unauthorized();
@@ -135,10 +134,10 @@ public static class ApiEndpoints
                 graceStreak),
             resume,
             pendingRecall,
-            SupportedTranslations,
+            textProvider.GetSupportedTranslations().ToArray(),
             SupportedRecapVoices,
             SupportedAccentColors,
-            "More translations coming as licensing allows.");
+            "Translation availability depends on your installed text libraries.");
 
         return Results.Ok(response);
     }
@@ -341,12 +340,13 @@ public static class ApiEndpoints
         return Results.Ok(new UserSettingsDto(settings.Translation, settings.Pace.ToString().ToLowerInvariant(), settings.ReminderTime.ToString("HH:mm"), settings.FontFamily, settings.RecapVoice, settings.AccentColor));
     }
 
-    private static async Task<IResult> SaveSettingsAsync(SaveSettingsRequest request, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
+    private static async Task<IResult> SaveSettingsAsync(SaveSettingsRequest request, AppDbContext db, IAuthService authService, ITextProvider textProvider, HttpRequest httpRequest, CancellationToken ct)
     {
         var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
         if (userId is null) return Results.Unauthorized();
 
-        var normalizedTranslation = SupportedTranslations.Contains(request.Translation.ToUpperInvariant())
+        var supportedTranslations = textProvider.GetSupportedTranslations();
+        var normalizedTranslation = supportedTranslations.Contains(request.Translation.ToUpperInvariant())
             ? request.Translation.ToUpperInvariant()
             : "WEB";
         var pace = request.Pace.Equals("short", StringComparison.OrdinalIgnoreCase) ? ReadingPace.Short : ReadingPace.Standard;

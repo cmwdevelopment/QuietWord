@@ -1,6 +1,6 @@
 // QuietWord API Types
 
-export type Translation = "WEB" | "KJV" | "ASV" | "BBE" | "DARBY";
+export type Translation = string;
 export type Pace = "short" | "standard";
 export type Section = "John" | "Psalm";
 export type NoteType = "Question" | "Promise" | "Conviction" | "Action" | "Comfort";

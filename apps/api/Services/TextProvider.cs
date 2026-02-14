@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Microsoft.Extensions.Caching.Memory;
 using QuietWord.Api.Contracts;
 using QuietWord.Api.Domain;
@@ -7,6 +9,7 @@ namespace QuietWord.Api.Services;
 
 public interface ITextProvider
 {
+    IReadOnlyList<string> GetSupportedTranslations();
     Task<PassageResponse> GetPassageAsync(string reference, string translation, CancellationToken cancellationToken = default);
 }
 
@@ -16,13 +19,45 @@ public sealed class BibleApiTextProvider(
     IChunkingService chunkingService,
     ILogger<BibleApiTextProvider> logger) : ITextProvider
 {
-    private static readonly string[] AllowedTranslations = ["WEB", "KJV", "ASV", "BBE", "DARBY"];
+    private static readonly string[] ApiTranslations = ["WEB", "KJV", "ASV", "BBE", "DARBY"];
+    private static readonly Regex RefRegex = new(
+        @"^(?<book>[1-3]?\s*[A-Za-z]+)\s+(?<chapter>\d+)(?::(?<start>\d+)(?:-(?<end>\d+))?)?$",
+        RegexOptions.Compiled);
+
+    private readonly IReadOnlyDictionary<string, string> _xmlTranslations =
+        DiscoverXmlTranslations(Path.Combine(AppContext.BaseDirectory, "seed", "xml"));
+
+    public IReadOnlyList<string> GetSupportedTranslations()
+    {
+        return _xmlTranslations.Keys
+            .Concat(ApiTranslations)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
 
     public async Task<PassageResponse> GetPassageAsync(string reference, string translation, CancellationToken cancellationToken = default)
     {
-        var normalizedTranslation = AllowedTranslations.Contains(translation.ToUpperInvariant())
-            ? translation.ToUpperInvariant()
-            : "WEB";
+        var normalizedTranslation = (translation ?? string.Empty).Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedTranslation))
+        {
+            normalizedTranslation = "WEB";
+        }
+
+        if (_xmlTranslations.TryGetValue(normalizedTranslation, out var xmlPath))
+        {
+            var xmlResult = TryGetFromXml(reference, normalizedTranslation, xmlPath);
+            if (xmlResult is not null)
+            {
+                return xmlResult;
+            }
+        }
+
+        if (!ApiTranslations.Contains(normalizedTranslation, StringComparer.OrdinalIgnoreCase))
+        {
+            normalizedTranslation = "WEB";
+        }
+
         var cacheKey = $"passage:{reference}:{normalizedTranslation}";
 
         if (cache.TryGetValue(cacheKey, out PassageResponse? cached) && cached is not null)
@@ -83,4 +118,158 @@ public sealed class BibleApiTextProvider(
         var chunks = chunkingService.Chunk(reference.StartsWith("Psalm", StringComparison.OrdinalIgnoreCase) ? ReadingSection.Psalm : ReadingSection.John, verses).ToArray();
         return new PassageResponse(reference, translation, verses, chunks);
     }
+
+    private PassageResponse? TryGetFromXml(string reference, string translation, string xmlPath)
+    {
+        var parsed = ParseReference(reference);
+        if (parsed is null) return null;
+
+        var cacheKey = $"xmlpassage:{xmlPath}:{parsed.BookKey}:{parsed.Chapter}:{parsed.StartVerse}:{parsed.EndVerse}";
+        if (cache.TryGetValue(cacheKey, out PassageResponse? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        var chapterVerses = LoadChapterFromXml(xmlPath, parsed.BookKey, parsed.Chapter);
+        if (chapterVerses.Count == 0)
+        {
+            logger.LogWarning("No verses found in XML for {Reference} ({Translation})", reference, translation);
+            return null;
+        }
+
+        var selected = chapterVerses
+            .Where(x => x.Key >= parsed.StartVerse && x.Key <= parsed.EndVerse)
+            .OrderBy(x => x.Key)
+            .ToArray();
+
+        if (selected.Length == 0)
+        {
+            return null;
+        }
+
+        var verses = selected
+            .Select(x => new VerseDto($"{parsed.BookDisplay} {parsed.Chapter}:{x.Key}", x.Value, parsed.Chapter, x.Key))
+            .ToArray();
+
+        var section = parsed.BookKey == "psalm" ? ReadingSection.Psalm : ReadingSection.John;
+        var chunks = chunkingService.Chunk(section, verses).ToArray();
+        var result = new PassageResponse(reference, translation, verses, chunks);
+        cache.Set(cacheKey, result, TimeSpan.FromMinutes(30));
+        return result;
+    }
+
+    private static IReadOnlyDictionary<string, string> DiscoverXmlTranslations(string folder)
+    {
+        if (!Directory.Exists(folder))
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in Directory.EnumerateFiles(folder, "*.xml", SearchOption.TopDirectoryOnly))
+        {
+            var code = InferTranslationCode(Path.GetFileNameWithoutExtension(file));
+            if (!string.IsNullOrWhiteSpace(code))
+            {
+                map[code] = file;
+            }
+        }
+
+        return map;
+    }
+
+    private static string InferTranslationCode(string fileNameWithoutExtension)
+    {
+        var normalized = fileNameWithoutExtension.Trim().ToUpperInvariant();
+        if (normalized.Contains("INTERNATIONAL VERSION") || normalized.Contains(" NIV")) return "NIV";
+        if (normalized.Contains("AMP")) return "AMP";
+        if (normalized.Contains("ESV")) return "ESV";
+        if (normalized.Contains("MSG")) return "MSG";
+        if (normalized.Contains("NASB")) return "NASB";
+        if (normalized.Contains("NIRV")) return "NIRV";
+        if (normalized.Contains("NKJV")) return "NKJV";
+        if (normalized.Contains("NLT")) return "NLT";
+
+        var alpha = new string(normalized.Where(char.IsLetter).ToArray());
+        if (alpha.Length == 0) return string.Empty;
+        return alpha.Length <= 6 ? alpha : alpha[..6];
+    }
+
+    private static ParsedReference? ParseReference(string reference)
+    {
+        var match = RefRegex.Match(reference.Trim());
+        if (!match.Success) return null;
+
+        var rawBook = match.Groups["book"].Value.Trim();
+        var chapter = int.Parse(match.Groups["chapter"].Value);
+        var hasStart = match.Groups["start"].Success;
+        var startVerse = hasStart ? int.Parse(match.Groups["start"].Value) : 1;
+        var endVerse = match.Groups["end"].Success ? int.Parse(match.Groups["end"].Value) : startVerse;
+
+        string bookKey;
+        string display;
+        if (rawBook.StartsWith("Psalm", StringComparison.OrdinalIgnoreCase) || rawBook.StartsWith("Psalms", StringComparison.OrdinalIgnoreCase))
+        {
+            bookKey = "psalm";
+            display = "Psalm";
+        }
+        else if (rawBook.Equals("John", StringComparison.OrdinalIgnoreCase))
+        {
+            bookKey = "john";
+            display = "John";
+        }
+        else
+        {
+            return null;
+        }
+
+        return new ParsedReference(bookKey, display, chapter, startVerse, Math.Max(startVerse, endVerse));
+    }
+
+    private SortedDictionary<int, string> LoadChapterFromXml(string xmlPath, string bookKey, int chapterNumber)
+    {
+        var cacheKey = $"xmlchapter:{xmlPath}:{bookKey}:{chapterNumber}";
+        if (cache.TryGetValue(cacheKey, out SortedDictionary<int, string>? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        var targetBook = bookKey == "psalm" ? "psalms" : "john";
+        var verses = new SortedDictionary<int, string>();
+
+        try
+        {
+            var doc = XDocument.Load(xmlPath, LoadOptions.PreserveWhitespace);
+            var book = doc.Descendants("BIBLEBOOK")
+                .FirstOrDefault(x => string.Equals((string?)x.Attribute("bname"), targetBook, StringComparison.OrdinalIgnoreCase));
+            if (book is null)
+            {
+                return verses;
+            }
+
+            var chapter = book.Elements("CHAPTER")
+                .FirstOrDefault(x => (string?)x.Attribute("cnumber") == chapterNumber.ToString());
+            if (chapter is null)
+            {
+                return verses;
+            }
+
+            foreach (var verse in chapter.Elements("VERS"))
+            {
+                if (!int.TryParse((string?)verse.Attribute("vnumber"), out var num)) continue;
+                var text = (verse.Value ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(text)) continue;
+                verses[num] = text;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load XML translation file {File}", xmlPath);
+        }
+
+        cache.Set(cacheKey, verses, TimeSpan.FromHours(2));
+        return verses;
+    }
+
+    private sealed record ParsedReference(string BookKey, string BookDisplay, int Chapter, int StartVerse, int EndVerse);
 }

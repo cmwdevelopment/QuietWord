@@ -20,6 +20,7 @@ import {
   getSavedAccentPreference,
   saveAccentPreference
 } from "../lib/accentTheme";
+import { DEFAULT_TRANSLATIONS, translationLabel } from "../lib/translations";
 
 export function Settings() {
   const navigate = useNavigate();
@@ -29,18 +30,16 @@ export function Settings() {
   const [fontFamily, setFontFamily] = useState(getSavedFontPreference());
   const [recapVoice, setRecapVoice] = useState<RecapVoice>("classic_pastor");
   const [accentColor, setAccentColor] = useState(getSavedAccentPreference());
+  const [availableTranslations, setAvailableTranslations] = useState<string[]>(DEFAULT_TRANSLATIONS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const translations: { value: Translation; label: string }[] = [
-    { value: "WEB", label: "World English Bible" },
-    { value: "KJV", label: "King James Version" },
-    { value: "ASV", label: "American Standard Version" },
-    { value: "BBE", label: "Bible in Basic English" },
-    { value: "DARBY", label: "Darby Translation" },
-  ];
+  const translations: { value: Translation; label: string }[] = availableTranslations.map((code) => ({
+    value: code,
+    label: translationLabel(code),
+  }));
 
   useEffect(() => {
     loadSettings();
@@ -50,6 +49,11 @@ export function Settings() {
     setIsLoading(true);
     setError(null);
     try {
+      const bootstrap = await api.bootstrap();
+      if (bootstrap.supportedTranslations?.length) {
+        setAvailableTranslations(bootstrap.supportedTranslations);
+      }
+
       const data = await api.getSettings();
       setTranslation(data.translation);
       setPace(data.pace);

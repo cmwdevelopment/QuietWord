@@ -1,27 +1,42 @@
 // Onboarding page - initial setup with glassmorphism
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { api } from "../lib/api";
 import type { Translation, Pace } from "../lib/types";
 import { PrimaryButton } from "../components/PrimaryButton";
+import { DEFAULT_TRANSLATIONS, translationLabel } from "../lib/translations";
 
 export function Onboarding() {
   const navigate = useNavigate();
   const [translation, setTranslation] = useState<Translation>("WEB");
   const [pace, setPace] = useState<Pace>("standard");
   const [reminderTime, setReminderTime] = useState("08:00");
+  const [availableTranslations, setAvailableTranslations] = useState<string[]>(DEFAULT_TRANSLATIONS);
   const [isLoading, setIsLoading] = useState(false);
 
-  const translations: { value: Translation; label: string }[] = [
-    { value: "WEB", label: "World English Bible" },
-    { value: "KJV", label: "King James Version" },
-    { value: "ASV", label: "American Standard Version" },
-    { value: "BBE", label: "Bible in Basic English" },
-    { value: "DARBY", label: "Darby Translation" },
-  ];
+  const translations: { value: Translation; label: string }[] = availableTranslations.map((code) => ({
+    value: code,
+    label: translationLabel(code),
+  }));
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const bootstrap = await api.bootstrap();
+        if (bootstrap.supportedTranslations?.length) {
+          setAvailableTranslations(bootstrap.supportedTranslations);
+          setTranslation((current) =>
+            bootstrap.supportedTranslations.includes(current) ? current : bootstrap.supportedTranslations[0]
+          );
+        }
+      } catch {
+        // Keep local defaults when bootstrap is unavailable.
+      }
+    })();
+  }, []);
 
   const handleStart = async () => {
     setIsLoading(true);

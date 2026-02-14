@@ -15,6 +15,7 @@ import type {
   Settings,
   TodayReading,
 } from "./types";
+import { DEFAULT_TRANSLATIONS } from "./translations";
 
 // Mock data store
 let mockState = {
@@ -157,7 +158,7 @@ class MockApiClient {
       },
       resume: mockState.completedToday ? null : mockState.resume,
       pendingRecall: mockState.pendingRecall,
-      supportedTranslations: ["WEB", "KJV", "ASV", "BBE", "DARBY"],
+      supportedTranslations: DEFAULT_TRANSLATIONS,
       supportedRecapVoices: ["classic_pastor", "gen_z", "poetic", "coach", "scholar"],
       supportedAccentColors: ["teal_calm", "sage_mist", "sky_blue", "lavender_hush", "rose_dawn", "sand_warm"],
       translationMicrocopy: "More translations coming as licensing allows.",
