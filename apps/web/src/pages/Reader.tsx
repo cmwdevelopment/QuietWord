@@ -33,6 +33,7 @@ export function Reader() {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const playAttemptRef = React.useRef(0);
   const audioUnlockedRef = React.useRef(false);
+  const pendingAutoplayRef = React.useRef(false);
 
   const sectionName = section === "john" ? "John" : "Psalm";
   const sectionDisplay = section === "john" ? "Gospel of John" : "Psalm";
@@ -164,9 +165,9 @@ export function Reader() {
       const tinySilentMp3 =
         "data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA//////////////////////////////8AAAA8TEFNRTMuMTAwA8MAAAAAAAAAABQgJAUHQQAB4AAAAnE2M2v6AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
       audioRef.current.src = tinySilentMp3;
+      audioRef.current.muted = true;
+      audioRef.current.loop = true;
       await audioRef.current.play();
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
       audioUnlockedRef.current = true;
     } catch {
       // Some browsers still require direct user interaction per playback attempt.
@@ -207,17 +208,25 @@ export function Reader() {
       });
 
       if (audioRef.current) {
+        audioRef.current.loop = false;
+        audioRef.current.muted = false;
         audioRef.current.src = nextUrl;
         const currentAttempt = ++playAttemptRef.current;
+        pendingAutoplayRef.current = true;
         setIsAudioStarting(true);
         try {
+          await audioRef.current.load();
           await audioRef.current.play();
           if (playAttemptRef.current === currentAttempt) {
             setIsPlayingAudio(true);
+            pendingAutoplayRef.current = false;
           }
         } catch (err) {
           if (!(err instanceof DOMException && err.name === "AbortError")) {
-            throw err;
+            // Fall back to loadeddata replay path on iOS/webkit autoplay quirks.
+            if (!(err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "NotSupportedError"))) {
+              throw err;
+            }
           }
         } finally {
           if (playAttemptRef.current === currentAttempt) {
@@ -529,6 +538,17 @@ export function Reader() {
           ref={audioRef}
           preload="auto"
           playsInline
+          onLoadedData={() => {
+            if (!pendingAutoplayRef.current || !audioRef.current) return;
+            void audioRef.current.play()
+              .then(() => {
+                setIsPlayingAudio(true);
+                pendingAutoplayRef.current = false;
+              })
+              .catch(() => {
+                // Require another explicit tap if browser still blocks.
+              });
+          }}
           onEnded={() => setIsPlayingAudio(false)}
           onPause={() => setIsPlayingAudio(false)}
           onPlay={() => setIsPlayingAudio(true)}
