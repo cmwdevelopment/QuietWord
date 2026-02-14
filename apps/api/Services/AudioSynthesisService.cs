@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace QuietWord.Api.Services;
 
@@ -9,7 +11,11 @@ public interface IAudioSynthesisService
     Task<byte[]> SynthesizeAsync(string text, string voiceId, decimal speed, CancellationToken ct = default);
 }
 
-public sealed class OpenAiAudioSynthesisService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<OpenAiAudioSynthesisService> logger) : IAudioSynthesisService
+public sealed class OpenAiAudioSynthesisService(
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IMemoryCache cache,
+    ILogger<OpenAiAudioSynthesisService> logger) : IAudioSynthesisService
 {
     private const int MaxInputLength = 6000;
 
@@ -25,6 +31,12 @@ public sealed class OpenAiAudioSynthesisService(IHttpClientFactory httpClientFac
         var model = configuration["OPENAI_TTS_MODEL"] ?? "gpt-4o-mini-tts";
         var voice = ResolveOpenAiVoice(voiceId);
         var normalizedSpeed = Math.Clamp(speed, 0.75m, 1.50m);
+        var cacheKey = BuildCacheKey(model, voice, normalizedSpeed, clippedText);
+
+        if (cache.TryGetValue(cacheKey, out byte[]? cachedAudio) && cachedAudio is not null)
+        {
+            return cachedAudio;
+        }
 
         var payload = new
         {
@@ -48,7 +60,9 @@ public sealed class OpenAiAudioSynthesisService(IHttpClientFactory httpClientFac
             throw new InvalidOperationException("Failed to synthesize audio.");
         }
 
-        return await response.Content.ReadAsByteArrayAsync(ct);
+        var audio = await response.Content.ReadAsByteArrayAsync(ct);
+        cache.Set(cacheKey, audio, TimeSpan.FromHours(24));
+        return audio;
     }
 
     private static string ClipText(string text)
@@ -69,5 +83,12 @@ public sealed class OpenAiAudioSynthesisService(IHttpClientFactory httpClientFac
             "classic" => "ash",
             _ => "alloy"
         };
+    }
+
+    private static string BuildCacheKey(string model, string voice, decimal speed, string text)
+    {
+        var payload = $"{model}|{voice}|{speed:F2}|{text}";
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
+        return $"tts:{Convert.ToHexString(hash)}";
     }
 }

@@ -32,6 +32,7 @@ export function Reader() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const playAttemptRef = React.useRef(0);
+  const audioUnlockedRef = React.useRef(false);
 
   const sectionName = section === "john" ? "John" : "Psalm";
   const sectionDisplay = section === "john" ? "Gospel of John" : "Psalm";
@@ -155,6 +156,21 @@ export function Reader() {
     }
     setIsPlayingAudio(false);
     setIsAudioStarting(false);
+  };
+
+  const ensureAudioUnlocked = async () => {
+    if (audioUnlockedRef.current || !audioRef.current) return;
+    try {
+      const tinySilentMp3 =
+        "data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA//////////////////////////////8AAAA8TEFNRTMuMTAwA8MAAAAAAAAAABQgJAUHQQAB4AAAAnE2M2v6AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+      audioRef.current.src = tinySilentMp3;
+      await audioRef.current.play();
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioUnlockedRef.current = true;
+    } catch {
+      // Some browsers still require direct user interaction per playback attempt.
+    }
   };
 
   const buildChunkListeningScript = (chunkIndex: number) => {
@@ -315,6 +331,8 @@ export function Reader() {
       toast.info("Enable Listening mode in Settings first.");
       return;
     }
+
+    await ensureAudioUnlocked();
 
     if (audioRef.current && isPlayingAudio) {
       setIsListeningSession(false);
@@ -509,6 +527,8 @@ export function Reader() {
         )}
         <audio
           ref={audioRef}
+          preload="auto"
+          playsInline
           onEnded={() => setIsPlayingAudio(false)}
           onPause={() => setIsPlayingAudio(false)}
           onPlay={() => setIsPlayingAudio(true)}
