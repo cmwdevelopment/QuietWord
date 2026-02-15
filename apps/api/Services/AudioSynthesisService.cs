@@ -32,8 +32,7 @@ public sealed class OpenAiAudioSynthesisService(
         var voice = ResolveOpenAiVoice(voiceId);
         var style = ResolveStyleInstruction(styleId);
         var normalizedSpeed = Math.Clamp(speed, 0.75m, 1.50m);
-        var promptedText = $"{style} {clippedText}".Trim();
-        var cacheKey = BuildCacheKey(model, voice, styleId, normalizedSpeed, promptedText);
+        var cacheKey = BuildCacheKey(model, voice, styleId, normalizedSpeed, clippedText);
 
         if (cache.TryGetValue(cacheKey, out byte[]? cachedAudio) && cachedAudio is not null)
         {
@@ -44,7 +43,8 @@ public sealed class OpenAiAudioSynthesisService(
         {
             model,
             voice,
-            input = promptedText,
+            input = clippedText,
+            instructions = style,
             format = "mp3",
             speed = normalizedSpeed
         };
