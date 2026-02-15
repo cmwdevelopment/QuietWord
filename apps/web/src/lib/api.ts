@@ -158,7 +158,7 @@ class ApiClient {
     });
   }
 
-  async synthesizeAudio(payload: { text: string; voice?: string; speed?: number }): Promise<Blob> {
+  async synthesizeAudio(payload: { text: string; voice?: string; style?: string; speed?: number }): Promise<Blob> {
     if (config.isDemoMode) {
       throw new Error("Audio synthesis is unavailable in demo mode.");
     }

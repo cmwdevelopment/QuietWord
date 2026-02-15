@@ -34,6 +34,7 @@ let mockState = {
     accentColor: "teal_calm",
     listeningEnabled: false,
     listeningVoice: "warm_guide" as const,
+    listeningStyle: "calm_presence" as const,
     listeningSpeed: 1.0,
   },
   resume: {
@@ -168,6 +169,7 @@ class MockApiClient {
       supportedRecapVoices: ["classic_pastor", "gen_z", "poetic", "coach", "scholar"],
       supportedAccentColors: ["teal_calm", "sage_mist", "sky_blue", "lavender_hush", "rose_dawn", "sand_warm"],
       supportedListeningVoices: ["warm_guide", "calm_narrator", "pastoral", "youthful", "classic"],
+      supportedListeningStyles: ["calm_presence", "conversational_shepherd", "reflective_reading", "resonant_orator", "revival_fire"],
       translationMicrocopy: "More translations coming as licensing allows.",
       appVersion: "0.6.0",
     };

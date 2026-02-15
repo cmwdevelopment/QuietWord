@@ -12,6 +12,7 @@ public static class ApiEndpoints
     private static readonly string[] SupportedRecapVoices = ["classic_pastor", "gen_z", "poetic", "coach", "scholar"];
     private static readonly string[] SupportedAccentColors = ["teal_calm", "sage_mist", "sky_blue", "lavender_hush", "rose_dawn", "sand_warm"];
     private static readonly string[] SupportedListeningVoices = ["warm_guide", "calm_narrator", "pastoral", "youthful", "classic"];
+    private static readonly string[] SupportedListeningStyles = ["calm_presence", "conversational_shepherd", "reflective_reading", "resonant_orator", "revival_fire"];
     private static readonly HashSet<string> SupportedFonts = new(StringComparer.OrdinalIgnoreCase)
     {
         "Inter", "Roboto", "Open Sans", "Lato", "Montserrat", "Merriweather", "Lora", "PT Serif", "Playfair Display"
@@ -89,6 +90,7 @@ public static class ApiEndpoints
         var settings = await db.UserSettings.FindAsync([userId.Value], ct) ?? new UserSettings { UserId = userId.Value };
         var recapVoice = SupportedRecapVoices.Contains(settings.RecapVoice) ? settings.RecapVoice : "classic_pastor";
         var accentColor = SupportedAccentColors.Contains(settings.AccentColor) ? settings.AccentColor : "teal_calm";
+        var listeningStyle = SupportedListeningStyles.Contains(settings.ListeningStyle) ? settings.ListeningStyle : "calm_presence";
         var dailyRecap = ResolveRecap(today, recapVoice);
 
         var recentCompletion = await db.DailyCompletions
@@ -137,6 +139,7 @@ public static class ApiEndpoints
                 accentColor,
                 settings.ListeningEnabled,
                 SupportedListeningVoices.Contains(settings.ListeningVoice) ? settings.ListeningVoice : "warm_guide",
+                listeningStyle,
                 NormalizeListeningSpeed(settings.ListeningSpeed)),
             new TodaySummary(
                 today.DayIndex,
@@ -153,6 +156,7 @@ public static class ApiEndpoints
             SupportedRecapVoices,
             SupportedAccentColors,
             SupportedListeningVoices,
+            SupportedListeningStyles,
             "Translation availability depends on your installed text libraries.",
             GetAppVersion());
 
@@ -354,6 +358,7 @@ public static class ApiEndpoints
             AccentColor = "teal_calm",
             ListeningEnabled = false,
             ListeningVoice = "warm_guide",
+            ListeningStyle = "calm_presence",
             ListeningSpeed = 1.0m
         };
 
@@ -366,6 +371,7 @@ public static class ApiEndpoints
             settings.AccentColor,
             settings.ListeningEnabled,
             SupportedListeningVoices.Contains(settings.ListeningVoice) ? settings.ListeningVoice : "warm_guide",
+            SupportedListeningStyles.Contains(settings.ListeningStyle) ? settings.ListeningStyle : "calm_presence",
             NormalizeListeningSpeed(settings.ListeningSpeed)));
     }
 
@@ -394,6 +400,9 @@ public static class ApiEndpoints
         var listeningVoice = string.IsNullOrWhiteSpace(request.ListeningVoice) || !SupportedListeningVoices.Contains(request.ListeningVoice.Trim())
             ? settings?.ListeningVoice ?? "warm_guide"
             : request.ListeningVoice.Trim();
+        var listeningStyle = string.IsNullOrWhiteSpace(request.ListeningStyle) || !SupportedListeningStyles.Contains(request.ListeningStyle.Trim())
+            ? settings?.ListeningStyle ?? "calm_presence"
+            : request.ListeningStyle.Trim();
         var listeningEnabled = request.ListeningEnabled ?? settings?.ListeningEnabled ?? false;
         var listeningSpeed = NormalizeListeningSpeed(request.ListeningSpeed ?? settings?.ListeningSpeed ?? 1.0m);
         if (settings is null)
@@ -409,6 +418,7 @@ public static class ApiEndpoints
                 AccentColor = accentColor,
                 ListeningEnabled = listeningEnabled,
                 ListeningVoice = listeningVoice,
+                ListeningStyle = listeningStyle,
                 ListeningSpeed = listeningSpeed,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -424,6 +434,7 @@ public static class ApiEndpoints
             settings.AccentColor = accentColor;
             settings.ListeningEnabled = listeningEnabled;
             settings.ListeningVoice = listeningVoice;
+            settings.ListeningStyle = listeningStyle;
             settings.ListeningSpeed = listeningSpeed;
             settings.UpdatedAt = DateTime.UtcNow;
         }
@@ -438,6 +449,7 @@ public static class ApiEndpoints
             settings.AccentColor,
             settings.ListeningEnabled,
             settings.ListeningVoice,
+            settings.ListeningStyle,
             NormalizeListeningSpeed(settings.ListeningSpeed)));
     }
 
@@ -493,7 +505,7 @@ public static class ApiEndpoints
 
         return Results.Ok(items);
     }
-    private static async Task<IResult> SynthesizeAudioAsync(AudioSynthesizeRequest request, IAudioSynthesisService audioService, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
+    private static async Task<IResult> SynthesizeAudioAsync(AudioSynthesizeRequest request, IAudioSynthesisService audioService, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
     {
         var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
         if (userId is null) return Results.Unauthorized();
@@ -509,12 +521,20 @@ public static class ApiEndpoints
         {
             voice = "warm_guide";
         }
+        var userSettings = await db.UserSettings.FindAsync([userId.Value], ct);
+        var style = string.IsNullOrWhiteSpace(request.Style)
+            ? userSettings?.ListeningStyle ?? "calm_presence"
+            : request.Style.Trim();
+        if (!SupportedListeningStyles.Contains(style))
+        {
+            style = "calm_presence";
+        }
 
         var speed = NormalizeListeningSpeed(request.Speed ?? 1.0m);
 
         try
         {
-            var audio = await audioService.SynthesizeAsync(text, voice, speed, ct);
+            var audio = await audioService.SynthesizeAsync(text, voice, style, speed, ct);
             return Results.File(audio, "audio/mpeg", enableRangeProcessing: false);
         }
         catch (Exception)

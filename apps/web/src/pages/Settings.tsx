@@ -5,7 +5,7 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { api } from "../lib/api";
-import type { Translation, Pace, RecapVoice, ListeningVoice } from "../lib/types";
+import type { Translation, Pace, RecapVoice, ListeningVoice, ListeningStyle } from "../lib/types";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import {
@@ -32,6 +32,7 @@ export function Settings() {
   const [accentColor, setAccentColor] = useState(getSavedAccentPreference());
   const [listeningEnabled, setListeningEnabled] = useState(false);
   const [listeningVoice, setListeningVoice] = useState<ListeningVoice>("warm_guide");
+  const [listeningStyle, setListeningStyle] = useState<ListeningStyle>("calm_presence");
   const [listeningSpeed, setListeningSpeed] = useState(1.0);
   const [availableTranslations, setAvailableTranslations] = useState<string[]>(DEFAULT_TRANSLATIONS);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,6 +69,7 @@ export function Settings() {
       setRecapVoice((data.recapVoice as RecapVoice) || "classic_pastor");
       setListeningEnabled(Boolean(data.listeningEnabled));
       setListeningVoice((data.listeningVoice as ListeningVoice) || "warm_guide");
+      setListeningStyle((data.listeningStyle as ListeningStyle) || "calm_presence");
       setListeningSpeed(data.listeningSpeed ?? 1.0);
       const serverAccent = data.accentColor || getSavedAccentPreference();
       setAccentColor(serverAccent);
@@ -93,6 +95,7 @@ export function Settings() {
         accentColor,
         listeningEnabled,
         listeningVoice,
+        listeningStyle,
         listeningSpeed
       });
       applyFontPreference(fontFamily);
@@ -388,6 +391,24 @@ export function Settings() {
                   <option value="pastoral">Pastoral</option>
                   <option value="youthful">Youthful</option>
                   <option value="classic">Classic</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="listening-style" className="block text-sm font-medium text-foreground mb-2">
+                  Delivery style
+                </label>
+                <select
+                  id="listening-style"
+                  value={listeningStyle}
+                  onChange={(e) => setListeningStyle(e.target.value as ListeningStyle)}
+                  className="w-full p-3.5 rounded-xl glass border border-glass-border focus:ring-2 focus:ring-primary focus:border-primary transition-all text-foreground bg-input-background"
+                >
+                  <option value="calm_presence">Calm Presence</option>
+                  <option value="conversational_shepherd">Conversational Shepherd</option>
+                  <option value="reflective_reading">Reflective Reading</option>
+                  <option value="resonant_orator">Resonant Orator</option>
+                  <option value="revival_fire">Revival Fire</option>
                 </select>
               </div>
 

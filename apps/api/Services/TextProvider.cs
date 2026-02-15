@@ -234,14 +234,21 @@ public sealed class BibleApiTextProvider(
             return cached;
         }
 
-        var targetBook = bookKey == "psalm" ? "psalms" : "john";
+        var targetBook = bookKey == "psalm" ? "psalm" : "john";
+        var targetBookNumber = bookKey == "psalm" ? "19" : "43";
         var verses = new SortedDictionary<int, string>();
 
         try
         {
             var doc = XDocument.Load(xmlPath, LoadOptions.PreserveWhitespace);
             var book = doc.Descendants("BIBLEBOOK")
-                .FirstOrDefault(x => string.Equals((string?)x.Attribute("bname"), targetBook, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(x =>
+                {
+                    var bname = (string?)x.Attribute("bname") ?? string.Empty;
+                    var bnumber = (string?)x.Attribute("bnumber") ?? string.Empty;
+                    return string.Equals(bnumber, targetBookNumber, StringComparison.OrdinalIgnoreCase)
+                        || IsBookNameMatch(bname, targetBook);
+                });
             if (book is null)
             {
                 return verses;
@@ -269,6 +276,19 @@ public sealed class BibleApiTextProvider(
 
         cache.Set(cacheKey, verses, TimeSpan.FromHours(2));
         return verses;
+    }
+
+    private static bool IsBookNameMatch(string bookName, string targetBook)
+    {
+        if (string.IsNullOrWhiteSpace(bookName)) return false;
+        var normalized = new string(bookName.Where(char.IsLetter).ToArray()).ToLowerInvariant();
+        var target = new string(targetBook.Where(char.IsLetter).ToArray()).ToLowerInvariant();
+
+        if (normalized == target) return true;
+
+        if (target == "psalm" && (normalized == "psalms" || normalized == "psalm")) return true;
+
+        return false;
     }
 
     private sealed record ParsedReference(string BookKey, string BookDisplay, int Chapter, int StartVerse, int EndVerse);

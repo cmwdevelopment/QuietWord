@@ -41,6 +41,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             b.Property(x => x.AccentColor).HasColumnName("accent_color");
             b.Property(x => x.ListeningEnabled).HasColumnName("listening_enabled");
             b.Property(x => x.ListeningVoice).HasColumnName("listening_voice");
+            b.Property(x => x.ListeningStyle).HasColumnName("listening_style");
             b.Property(x => x.ListeningSpeed).HasColumnName("listening_speed").HasPrecision(3, 2);
             b.Property(x => x.UpdatedAt).HasColumnName("updated_at");
         });

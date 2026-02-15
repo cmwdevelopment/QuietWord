@@ -8,7 +8,7 @@ namespace QuietWord.Api.Services;
 
 public interface IAudioSynthesisService
 {
-    Task<byte[]> SynthesizeAsync(string text, string voiceId, decimal speed, CancellationToken ct = default);
+    Task<byte[]> SynthesizeAsync(string text, string voiceId, string styleId, decimal speed, CancellationToken ct = default);
 }
 
 public sealed class OpenAiAudioSynthesisService(
@@ -19,7 +19,7 @@ public sealed class OpenAiAudioSynthesisService(
 {
     private const int MaxInputLength = 6000;
 
-    public async Task<byte[]> SynthesizeAsync(string text, string voiceId, decimal speed, CancellationToken ct = default)
+    public async Task<byte[]> SynthesizeAsync(string text, string voiceId, string styleId, decimal speed, CancellationToken ct = default)
     {
         var apiKey = configuration["OPENAI_API_KEY"];
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -30,8 +30,10 @@ public sealed class OpenAiAudioSynthesisService(
         var clippedText = ClipText(text);
         var model = configuration["OPENAI_TTS_MODEL"] ?? "gpt-4o-mini-tts";
         var voice = ResolveOpenAiVoice(voiceId);
+        var style = ResolveStyleInstruction(styleId);
         var normalizedSpeed = Math.Clamp(speed, 0.75m, 1.50m);
-        var cacheKey = BuildCacheKey(model, voice, normalizedSpeed, clippedText);
+        var promptedText = $"{style} {clippedText}".Trim();
+        var cacheKey = BuildCacheKey(model, voice, styleId, normalizedSpeed, promptedText);
 
         if (cache.TryGetValue(cacheKey, out byte[]? cachedAudio) && cachedAudio is not null)
         {
@@ -42,7 +44,7 @@ public sealed class OpenAiAudioSynthesisService(
         {
             model,
             voice,
-            input = clippedText,
+            input = promptedText,
             format = "mp3",
             speed = normalizedSpeed
         };
@@ -85,9 +87,22 @@ public sealed class OpenAiAudioSynthesisService(
         };
     }
 
-    private static string BuildCacheKey(string model, string voice, decimal speed, string text)
+    private static string ResolveStyleInstruction(string styleId)
     {
-        var payload = $"{model}|{voice}|{speed:F2}|{text}";
+        return styleId switch
+        {
+            "revival_fire" => "Read with energetic sermon rhythm, bold emphasis, dramatic pauses, and warm conviction.",
+            "resonant_orator" => "Read in a deep, resonant, deliberate cadence with confident sentence endings.",
+            "calm_presence" => "Read softly and calmly with gentle pacing, relaxed pauses, and reassuring warmth.",
+            "conversational_shepherd" => "Read warmly and personally, like a trusted guide speaking one-to-one.",
+            "reflective_reading" => "Read slowly and contemplatively with light emphasis and spacious pauses.",
+            _ => "Read naturally, clearly, and warmly."
+        };
+    }
+
+    private static string BuildCacheKey(string model, string voice, string styleId, decimal speed, string text)
+    {
+        var payload = $"{model}|{voice}|{styleId}|{speed:F2}|{text}";
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
         return $"tts:{Convert.ToHexString(hash)}";
     }

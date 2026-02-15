@@ -218,6 +218,7 @@ export function Reader() {
     const blob = await api.synthesizeAudio({
       text: script,
       voice: bootstrap.settings.listeningVoice,
+      style: bootstrap.settings.listeningStyle,
       speed: bootstrap.settings.listeningSpeed,
     });
 

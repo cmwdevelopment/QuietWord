@@ -16,6 +16,7 @@ public sealed record BootstrapResponse(
     string[] SupportedRecapVoices,
     string[] SupportedAccentColors,
     string[] SupportedListeningVoices,
+    string[] SupportedListeningStyles,
     string TranslationMicrocopy,
     string AppVersion);
 
@@ -29,6 +30,7 @@ public sealed record UserSettingsDto(
     string AccentColor,
     bool ListeningEnabled,
     string ListeningVoice,
+    string ListeningStyle,
     decimal ListeningSpeed);
 public sealed record TodaySummary(int DayIndex, string JohnRef, string PsalmRef, string Theme, string DailyRecap, bool CompletedToday, int Streak, int GraceStreak);
 public sealed record ResumeSummary(string Section, string LastRef, int LastChunkIndex, string? VerseAnchor, DateTime UpdatedAt);
@@ -50,9 +52,10 @@ public sealed record SaveSettingsRequest(
     string? AccentColor = null,
     bool? ListeningEnabled = null,
     string? ListeningVoice = null,
+    string? ListeningStyle = null,
     decimal? ListeningSpeed = null);
 
-public sealed record AudioSynthesizeRequest(string Text, string? Voice = null, decimal? Speed = null);
+public sealed record AudioSynthesizeRequest(string Text, string? Voice = null, string? Style = null, decimal? Speed = null);
 public sealed record CreateFeedbackRequest(string Category, int Rating, string Message, string? ContextPath = null);
 public sealed record FeedbackDto(Guid Id, string Category, int Rating, string Message, string? ContextPath, DateTime CreatedAt);
 public sealed record AppMetaResponse(string Version);

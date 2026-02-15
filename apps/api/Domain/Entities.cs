@@ -25,6 +25,7 @@ public sealed class UserSettings
     [MaxLength(40)] public string AccentColor { get; set; } = "teal_calm";
     public bool ListeningEnabled { get; set; }
     [MaxLength(40)] public string ListeningVoice { get; set; } = "warm_guide";
+    [MaxLength(40)] public string ListeningStyle { get; set; } = "calm_presence";
     public decimal ListeningSpeed { get; set; } = 1.0m;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

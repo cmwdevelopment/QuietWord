@@ -25,6 +25,7 @@ public sealed class UserBootstrapper(AppDbContext db)
                 AccentColor = "teal_calm",
                 ListeningEnabled = false,
                 ListeningVoice = "warm_guide",
+                ListeningStyle = "calm_presence",
                 ListeningSpeed = 1.0m,
                 UpdatedAt = DateTime.UtcNow
             });

@@ -6,6 +6,12 @@ export type Section = "John" | "Psalm";
 export type NoteType = "Question" | "Promise" | "Conviction" | "Action" | "Comfort";
 export type RecapVoice = "classic_pastor" | "gen_z" | "poetic" | "coach" | "scholar";
 export type ListeningVoice = "warm_guide" | "calm_narrator" | "pastoral" | "youthful" | "classic";
+export type ListeningStyle =
+  | "calm_presence"
+  | "conversational_shepherd"
+  | "reflective_reading"
+  | "resonant_orator"
+  | "revival_fire";
 
 export interface Plan {
   planId: string;
@@ -24,6 +30,7 @@ export interface Settings {
   accentColor?: string;
   listeningEnabled?: boolean;
   listeningVoice?: ListeningVoice;
+  listeningStyle?: ListeningStyle;
   listeningSpeed?: number;
 }
 
@@ -67,6 +74,7 @@ export interface BootstrapData {
   supportedRecapVoices: RecapVoice[];
   supportedAccentColors?: string[];
   supportedListeningVoices?: ListeningVoice[];
+  supportedListeningStyles?: ListeningStyle[];
   translationMicrocopy: string;
   appVersion: string;
 }
