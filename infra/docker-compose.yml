@@ -27,6 +27,8 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_TTS_MODEL: ${OPENAI_TTS_MODEL}
+      ADMIN_EMAILS: ${ADMIN_EMAILS}
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS}
     ports:
       - "8080:8080"
     depends_on:

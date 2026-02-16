@@ -756,6 +756,11 @@ public static class ApiEndpoints
 
     private static async Task<bool> IsAdminAsync(AppDbContext db, Guid userId, CancellationToken ct)
     {
+        if (GetAdminUserIds().Contains(userId))
+        {
+            return true;
+        }
+
         var email = await db.Users.Where(x => x.Id == userId).Select(x => x.Email).SingleOrDefaultAsync(ct);
         if (string.IsNullOrWhiteSpace(email)) return false;
         return GetAdminEmails().Contains(email.Trim().ToLowerInvariant());
@@ -764,10 +769,26 @@ public static class ApiEndpoints
     private static HashSet<string> GetAdminEmails()
     {
         var raw = Environment.GetEnvironmentVariable("ADMIN_EMAILS") ?? string.Empty;
-        return raw
-            .Split([',', ';'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+        return ParseDelimitedValues(raw)
             .Select(x => x.ToLowerInvariant())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static HashSet<Guid> GetAdminUserIds()
+    {
+        var raw = Environment.GetEnvironmentVariable("ADMIN_USER_IDS") ?? string.Empty;
+        return ParseDelimitedValues(raw)
+            .Select(x => Guid.TryParse(x, out var id) ? id : Guid.Empty)
+            .Where(x => x != Guid.Empty)
+            .ToHashSet();
+    }
+
+    private static IEnumerable<string> ParseDelimitedValues(string raw)
+    {
+        return (raw ?? string.Empty)
+            .Split([',', ';', ' ', '\n', '\r', '\t'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Trim().Trim('"', '\''))
+            .Where(x => !string.IsNullOrWhiteSpace(x));
     }
 
     private static string GetAppVersion()
