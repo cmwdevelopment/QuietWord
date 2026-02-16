@@ -1,36 +1,67 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import type { BootstrapData, Passage, Translation, VerseHighlight } from "../lib/types";
 import { LoadingSpinner } from "../components/LoadingSpinner";
-import { PrimaryButton } from "../components/PrimaryButton";
 
-const BIBLE_BOOKS = [
-  "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy", "Joshua", "Judges", "Ruth",
-  "1 Samuel", "2 Samuel", "1 Kings", "2 Kings", "1 Chronicles", "2 Chronicles", "Ezra", "Nehemiah",
-  "Esther", "Job", "Psalm", "Proverbs", "Ecclesiastes", "Song of Solomon", "Isaiah", "Jeremiah",
-  "Lamentations", "Ezekiel", "Daniel", "Hosea", "Joel", "Amos", "Obadiah", "Jonah", "Micah",
-  "Nahum", "Habakkuk", "Zephaniah", "Haggai", "Zechariah", "Malachi", "Matthew", "Mark", "Luke",
-  "John", "Acts", "Romans", "1 Corinthians", "2 Corinthians", "Galatians", "Ephesians", "Philippians",
-  "Colossians", "1 Thessalonians", "2 Thessalonians", "1 Timothy", "2 Timothy", "Titus", "Philemon",
-  "Hebrews", "James", "1 Peter", "2 Peter", "1 John", "2 John", "3 John", "Jude", "Revelation",
+const BOOKS: Array<{ name: string; chapters: number }> = [
+  { name: "Genesis", chapters: 50 }, { name: "Exodus", chapters: 40 }, { name: "Leviticus", chapters: 27 },
+  { name: "Numbers", chapters: 36 }, { name: "Deuteronomy", chapters: 34 }, { name: "Joshua", chapters: 24 },
+  { name: "Judges", chapters: 21 }, { name: "Ruth", chapters: 4 }, { name: "1 Samuel", chapters: 31 },
+  { name: "2 Samuel", chapters: 24 }, { name: "1 Kings", chapters: 22 }, { name: "2 Kings", chapters: 25 },
+  { name: "1 Chronicles", chapters: 29 }, { name: "2 Chronicles", chapters: 36 }, { name: "Ezra", chapters: 10 },
+  { name: "Nehemiah", chapters: 13 }, { name: "Esther", chapters: 10 }, { name: "Job", chapters: 42 },
+  { name: "Psalm", chapters: 150 }, { name: "Proverbs", chapters: 31 }, { name: "Ecclesiastes", chapters: 12 },
+  { name: "Song of Solomon", chapters: 8 }, { name: "Isaiah", chapters: 66 }, { name: "Jeremiah", chapters: 52 },
+  { name: "Lamentations", chapters: 5 }, { name: "Ezekiel", chapters: 48 }, { name: "Daniel", chapters: 12 },
+  { name: "Hosea", chapters: 14 }, { name: "Joel", chapters: 3 }, { name: "Amos", chapters: 9 },
+  { name: "Obadiah", chapters: 1 }, { name: "Jonah", chapters: 4 }, { name: "Micah", chapters: 7 },
+  { name: "Nahum", chapters: 3 }, { name: "Habakkuk", chapters: 3 }, { name: "Zephaniah", chapters: 3 },
+  { name: "Haggai", chapters: 2 }, { name: "Zechariah", chapters: 14 }, { name: "Malachi", chapters: 4 },
+  { name: "Matthew", chapters: 28 }, { name: "Mark", chapters: 16 }, { name: "Luke", chapters: 24 },
+  { name: "John", chapters: 21 }, { name: "Acts", chapters: 28 }, { name: "Romans", chapters: 16 },
+  { name: "1 Corinthians", chapters: 16 }, { name: "2 Corinthians", chapters: 13 }, { name: "Galatians", chapters: 6 },
+  { name: "Ephesians", chapters: 6 }, { name: "Philippians", chapters: 4 }, { name: "Colossians", chapters: 4 },
+  { name: "1 Thessalonians", chapters: 5 }, { name: "2 Thessalonians", chapters: 3 }, { name: "1 Timothy", chapters: 6 },
+  { name: "2 Timothy", chapters: 4 }, { name: "Titus", chapters: 3 }, { name: "Philemon", chapters: 1 },
+  { name: "Hebrews", chapters: 13 }, { name: "James", chapters: 5 }, { name: "1 Peter", chapters: 5 },
+  { name: "2 Peter", chapters: 3 }, { name: "1 John", chapters: 5 }, { name: "2 John", chapters: 1 },
+  { name: "3 John", chapters: 1 }, { name: "Jude", chapters: 1 }, { name: "Revelation", chapters: 22 },
 ];
 
-const HIGHLIGHT_COLORS: Array<{ key: VerseHighlight["color"]; label: string; className: string }> = [
-  { key: "amber", label: "Amber", className: "bg-amber-200 border-amber-300" },
-  { key: "mint", label: "Mint", className: "bg-emerald-200 border-emerald-300" },
-  { key: "sky", label: "Sky", className: "bg-sky-200 border-sky-300" },
-  { key: "rose", label: "Rose", className: "bg-rose-200 border-rose-300" },
-  { key: "lavender", label: "Lavender", className: "bg-violet-200 border-violet-300" },
+const HIGHLIGHT_COLORS: Array<{ key: VerseHighlight["color"]; label: string; textClass: string }> = [
+  { key: "amber", label: "Amber", textClass: "text-amber-700" },
+  { key: "mint", label: "Mint", textClass: "text-emerald-700" },
+  { key: "sky", label: "Sky", textClass: "text-sky-700" },
+  { key: "rose", label: "Rose", textClass: "text-rose-700" },
+  { key: "lavender", label: "Lavender", textClass: "text-violet-700" },
 ];
+
+const GOSPELS = new Set(["Matthew", "Mark", "Luke", "John"]);
 
 function parseReference(reference: string): { book: string; chapter: string } {
-  const m = (reference ?? "").trim().match(/^(?<book>.+?)\s+(?<chapter>\d+)/);
-  if (!m?.groups) {
-    return { book: "John", chapter: "1" };
-  }
-  return { book: m.groups.book ?? "John", chapter: m.groups.chapter ?? "1" };
+  const match = (reference ?? "").trim().match(/^(?<book>.+?)\s+(?<chapter>\d+)/);
+  if (!match?.groups) return { book: "John", chapter: "1" };
+  return { book: match.groups.book ?? "John", chapter: match.groups.chapter ?? "1" };
+}
+
+function isOtEcho(text: string): boolean {
+  return /(as it is written|scripture says|moses wrote|from the prophet|the prophet said|as david says|isaiah said)/i.test(text);
+}
+
+function renderVerseText(text: string, shouldAccentJesusWords: boolean) {
+  if (!shouldAccentJesusWords) return text;
+  const parts = text.split(/(".*?"|“.*?”)/g);
+  return parts.map((part, idx) => {
+    const isQuoted = /^(".*?"|“.*?”)$/.test(part);
+    if (!isQuoted) return <React.Fragment key={idx}>{part}</React.Fragment>;
+    return (
+      <span key={idx} className="font-medium underline decoration-primary/70 decoration-2 underline-offset-2">
+        {part}
+      </span>
+    );
+  });
 }
 
 export function BiblePage() {
@@ -49,36 +80,30 @@ export function BiblePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPassage, setIsLoadingPassage] = useState(false);
 
+  const currentReference = `${book} ${chapter}`;
+  const chapterCount = useMemo(() => BOOKS.find((x) => x.name === book)?.chapters ?? 1, [book]);
+  const chapterOptions = useMemo(() => Array.from({ length: chapterCount }, (_, i) => String(i + 1)), [chapterCount]);
   const highlightByRef = useMemo(() => {
     const map = new Map<string, VerseHighlight>();
     for (const h of highlights) map.set(h.verseRef, h);
     return map;
   }, [highlights]);
 
-  const currentReference = useMemo(() => `${book} ${(chapter || "1").trim()}`, [book, chapter]);
-
-  useEffect(() => {
+  React.useEffect(() => {
     void initialize();
   }, []);
-
-  useEffect(() => {
-    if (selectedVerseRefs.length === 0 && compareEnabled) {
-      setCompareEnabled(false);
-      setCompareTranslation("");
-      setComparePassage(null);
-    }
-  }, [selectedVerseRefs.length, compareEnabled]);
 
   const initialize = async () => {
     setIsLoading(true);
     try {
       const boot = await api.bootstrap();
       setBootstrap(boot);
-      setTranslation(boot.settings.translation);
+      const initialTranslation = boot.settings.translation;
+      setTranslation(initialTranslation);
       const parsed = parseReference(boot.today.johnRef || "John 1");
       setBook(parsed.book);
       setChapter(parsed.chapter);
-      await loadPassage(`${parsed.book} ${parsed.chapter}`, boot.settings.translation, "");
+      await loadPassage(parsed.book, parsed.chapter, initialTranslation, "");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load Bible module");
     } finally {
@@ -86,17 +111,19 @@ export function BiblePage() {
     }
   };
 
-  const loadPassage = async (reference: string, primary: Translation, secondary: Translation | "") => {
+  const loadPassage = async (nextBook: string, nextChapter: string, nextTranslation: Translation, nextCompare: Translation | "") => {
     setIsLoadingPassage(true);
     try {
-      const [p, h, c] = await Promise.all([
-        api.getPassage(reference, primary),
-        api.getBibleHighlights(reference, primary),
-        secondary ? api.getPassage(reference, secondary) : Promise.resolve(null),
+      const ref = `${nextBook} ${nextChapter}`;
+      const [primary, highlightPayload, compare] = await Promise.all([
+        api.getPassage(ref, nextTranslation),
+        api.getBibleHighlights(ref, nextTranslation),
+        nextCompare ? api.getPassage(ref, nextCompare) : Promise.resolve(null),
       ]);
-      setPassage(p);
-      setHighlights(h.highlights);
-      setComparePassage(c);
+
+      setPassage(primary);
+      setHighlights(highlightPayload.highlights);
+      setComparePassage(compare);
       setSelectedVerseRefs([]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load chapter");
@@ -105,12 +132,43 @@ export function BiblePage() {
     }
   };
 
-  const handleLoad = async () => {
-    await loadPassage(currentReference, translation, compareEnabled ? compareTranslation : "");
+  const onBookChange = async (nextBook: string) => {
+    const nextChapter = "1";
+    setBook(nextBook);
+    setChapter(nextChapter);
+    await loadPassage(nextBook, nextChapter, translation, compareEnabled ? compareTranslation : "");
+  };
+
+  const onChapterChange = async (nextChapter: string) => {
+    setChapter(nextChapter);
+    await loadPassage(book, nextChapter, translation, compareEnabled ? compareTranslation : "");
+  };
+
+  const onTranslationChange = async (nextTranslation: Translation) => {
+    setTranslation(nextTranslation);
+    await loadPassage(book, chapter, nextTranslation, compareEnabled ? compareTranslation : "");
+  };
+
+  const onCompareToggle = async () => {
+    const nextEnabled = !compareEnabled;
+    setCompareEnabled(nextEnabled);
+    if (!nextEnabled) {
+      setCompareTranslation("");
+      setComparePassage(null);
+      return;
+    }
+    if (compareTranslation) {
+      await loadPassage(book, chapter, translation, compareTranslation);
+    }
+  };
+
+  const onCompareTranslationChange = async (nextCompare: Translation | "") => {
+    setCompareTranslation(nextCompare);
+    await loadPassage(book, chapter, translation, nextCompare);
   };
 
   const toggleVerseSelection = (verseRef: string) => {
-    setSelectedVerseRefs((prev) => (prev.includes(verseRef) ? prev.filter((v) => v !== verseRef) : [...prev, verseRef]));
+    setSelectedVerseRefs((prev) => (prev.includes(verseRef) ? prev.filter((x) => x !== verseRef) : [...prev, verseRef]));
   };
 
   const refreshHighlights = async () => {
@@ -118,10 +176,11 @@ export function BiblePage() {
     setHighlights(refreshed.highlights);
   };
 
-  const applyHighlightToSelection = async () => {
+  const applyHighlight = async (color: VerseHighlight["color"]) => {
     if (selectedVerseRefs.length === 0) return;
+    setActiveColor(color);
     try {
-      await Promise.all(selectedVerseRefs.map((verseRef) => api.saveBibleHighlight({ translation, verseRef, color: activeColor })));
+      await Promise.all(selectedVerseRefs.map((verseRef) => api.saveBibleHighlight({ translation, verseRef, color })));
       await refreshHighlights();
       toast.success("Highlight applied");
     } catch {
@@ -129,14 +188,14 @@ export function BiblePage() {
     }
   };
 
-  const clearHighlightFromSelection = async () => {
+  const clearHighlights = async () => {
     if (selectedVerseRefs.length === 0) return;
     try {
       await Promise.all(selectedVerseRefs.map((verseRef) => api.deleteBibleHighlight(translation, verseRef)));
       await refreshHighlights();
       toast.success("Highlight removed");
     } catch {
-      toast.error("Unable to clear highlight");
+      toast.error("Unable to remove highlight");
     }
   };
 
@@ -153,89 +212,59 @@ export function BiblePage() {
       } else {
         await navigator.clipboard.writeText(content);
       }
-      toast.success("Selection copied to share");
+      toast.success("Selection copied");
     } catch {
       toast.error("Unable to share selection");
     }
   };
 
-  const handleCompareToggle = async () => {
-    const next = !compareEnabled;
-    setCompareEnabled(next);
-    if (!next) {
-      setCompareTranslation("");
-      setComparePassage(null);
-      return;
-    }
-    if (compareTranslation) {
-      await loadPassage(currentReference, translation, compareTranslation);
-    }
-  };
-
-  if (isLoading) {
-    return <LoadingSpinner message="Loading Bible module..." />;
-  }
+  if (isLoading) return <LoadingSpinner message="Loading Bible module..." />;
 
   return (
     <div className="min-h-screen">
       <div className="max-w-4xl mx-auto p-6 pb-24 space-y-5">
         <div className="flex items-center justify-between">
-          <button onClick={() => navigate("/")} className="text-sm text-foreground-muted hover:text-foreground">
-            &lt; Home
-          </button>
+          <button onClick={() => navigate("/")} className="text-sm text-foreground-muted hover:text-foreground">&lt; Home</button>
           <h1 className="text-2xl font-light text-foreground">Bible Studio</h1>
           <div />
         </div>
 
         <div className="glass-strong p-3 rounded-2xl">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="flex items-center gap-2 overflow-x-auto">
             <select
               value={book}
-              onChange={(e) => setBook(e.target.value)}
+              onChange={(e) => void onBookChange(e.target.value)}
               className="min-w-[150px] h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
             >
-              {BIBLE_BOOKS.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
+              {BOOKS.map((b) => <option key={b.name} value={b.name}>{b.name}</option>)}
             </select>
-            <input
-              type="number"
-              min={1}
+            <select
               value={chapter}
-              onChange={(e) => setChapter(e.target.value)}
-              className="w-16 h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
-              placeholder="Ch"
-            />
+              onChange={(e) => void onChapterChange(e.target.value)}
+              className="w-20 h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+            >
+              {chapterOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
             <select
               value={translation}
-              onChange={(e) => setTranslation(e.target.value)}
+              onChange={(e) => void onTranslationChange(e.target.value)}
               className="min-w-[84px] h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
             >
-              {(bootstrap?.supportedTranslations ?? []).map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
+              {(bootstrap?.supportedTranslations ?? []).map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
-            <div className="min-w-[84px]">
-              <PrimaryButton onClick={() => void handleLoad()} disabled={isLoadingPassage}>
-                {isLoadingPassage ? "Loading..." : "Load"}
-              </PrimaryButton>
-            </div>
+            {isLoadingPassage && <span className="text-xs text-foreground-muted">Loading...</span>}
           </div>
         </div>
 
         {selectedVerseRefs.length > 0 && (
-          <div className="glass p-3 rounded-2xl border border-glass-border space-y-2 sticky top-2 z-20">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-foreground-muted">
-                <span className="font-medium text-foreground">{selectedVerseRefs.length}</span> selected
-              </p>
-              <button onClick={() => setSelectedVerseRefs([])} className="text-xs px-2 py-1 rounded-full glass border border-glass-border">
-                Clear
-              </button>
+          <div className="glass p-3 rounded-2xl border border-glass-border sticky top-2 z-20">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-foreground-muted"><span className="font-medium text-foreground">{selectedVerseRefs.length}</span> selected</p>
+              <button onClick={() => setSelectedVerseRefs([])} className="text-xs px-2 py-1 rounded-full glass border border-glass-border">Clear</button>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button
-                onClick={() => void handleCompareToggle()}
+                onClick={() => void onCompareToggle()}
                 className={`h-8 px-3 rounded-lg border text-xs ${compareEnabled ? "bg-primary/15 border-primary/40 text-foreground" : "glass border-glass-border text-foreground-muted"}`}
               >
                 Compare
@@ -243,38 +272,31 @@ export function BiblePage() {
               {compareEnabled && (
                 <select
                   value={compareTranslation}
-                  onChange={async (e) => {
-                    const next = e.target.value as Translation | "";
-                    setCompareTranslation(next);
-                    await loadPassage(currentReference, translation, next);
-                  }}
+                  onChange={(e) => void onCompareTranslationChange(e.target.value as Translation | "")}
                   className="h-8 min-w-[90px] px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-xs"
                 >
                   <option value="">Off</option>
-                  {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
+                  {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               )}
-
               {HIGHLIGHT_COLORS.map((c) => (
                 <button
                   key={c.key}
-                  onClick={() => setActiveColor(c.key)}
-                  className={`px-2.5 py-1 rounded-full border text-xs text-slate-900 ${c.className} ${activeColor === c.key ? "ring-2 ring-primary" : ""}`}
-                >
-                  {c.label}
-                </button>
+                  onClick={() => void applyHighlight(c.key)}
+                  className={`w-6 h-6 rounded-full border ${activeColor === c.key ? "border-white" : "border-white/30"}`}
+                  style={{
+                    backgroundColor:
+                      c.key === "amber" ? "#f59e0b" :
+                      c.key === "mint" ? "#10b981" :
+                      c.key === "sky" ? "#0ea5e9" :
+                      c.key === "rose" ? "#f43f5e" : "#8b5cf6",
+                  }}
+                  aria-label={`Use ${c.label}`}
+                  title={c.label}
+                />
               ))}
-              <button onClick={() => void applyHighlightToSelection()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">
-                Apply
-              </button>
-              <button onClick={() => void clearHighlightFromSelection()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">
-                Remove
-              </button>
-              <button onClick={() => void shareSelection()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">
-                Share
-              </button>
+              <button onClick={() => void clearHighlights()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">Remove</button>
+              <button onClick={() => void shareSelection()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">Share</button>
             </div>
           </div>
         )}
@@ -288,22 +310,29 @@ export function BiblePage() {
               </div>
               <div className="space-y-0.5">
                 {passage.verses.map((verse) => {
-                  const h = highlightByRef.get(verse.ref);
-                  const hasHighlight = Boolean(h);
-                  const isSelected = selectedVerseRefs.includes(verse.ref);
-                  const colorClass = h
-                    ? HIGHLIGHT_COLORS.find((x) => x.key === h.color)?.className ?? "bg-amber-100 border-amber-300"
-                    : "bg-transparent border-transparent";
+                  const selected = selectedVerseRefs.includes(verse.ref);
+                  const highlight = highlightByRef.get(verse.ref);
+                  const highlightClass = highlight
+                    ? HIGHLIGHT_COLORS.find((x) => x.key === highlight.color)?.textClass ?? "text-amber-700"
+                    : "text-foreground";
+                  const showOtEcho = isOtEcho(verse.text);
+                  const accentJesus = GOSPELS.has(book);
+
                   return (
                     <button
                       key={verse.ref}
                       onClick={() => toggleVerseSelection(verse.ref)}
-                      className={`w-full text-left rounded-lg border px-2 py-2 transition-colors ${colorClass} ${isSelected ? "ring-2 ring-primary" : ""}`}
+                      className={`w-full text-left rounded-lg px-2 py-2 border transition-colors ${selected ? "ring-2 ring-primary border-primary/30" : "border-transparent"}`}
                     >
-                      <p className={`${hasHighlight ? "text-slate-900" : "text-foreground"} leading-relaxed`}>
-                        <span className={`text-xs align-super mr-1 ${hasHighlight ? "text-slate-600" : "text-foreground-subtle"}`}>{verse.verse}</span>
-                        {verse.text}
-                      </p>
+                      <div className="flex items-start gap-2">
+                        <p className={`flex-1 leading-relaxed ${highlightClass}`}>
+                          <span className="text-xs align-super mr-1 text-foreground-subtle">{verse.verse}</span>
+                          {renderVerseText(verse.text, accentJesus)}
+                        </p>
+                        {showOtEcho && (
+                          <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-secondary text-foreground-muted">OT Echo</span>
+                        )}
+                      </div>
                     </button>
                   );
                 })}
@@ -318,7 +347,7 @@ export function BiblePage() {
                 </div>
                 <div className="space-y-0.5">
                   {comparePassage.verses.map((verse) => (
-                    <div key={verse.ref} className="rounded-lg border border-transparent px-2 py-2">
+                    <div key={verse.ref} className="rounded-lg px-2 py-2">
                       <p className="text-foreground leading-relaxed">
                         <span className="text-xs align-super mr-1 text-foreground-subtle">{verse.verse}</span>
                         {verse.text}
@@ -334,4 +363,3 @@ export function BiblePage() {
     </div>
   );
 }
-
