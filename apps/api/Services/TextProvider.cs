@@ -20,6 +20,7 @@ public sealed class BibleApiTextProvider(
     ILogger<BibleApiTextProvider> logger) : ITextProvider
 {
     private static readonly string[] ApiTranslations = ["WEB", "KJV", "ASV", "BBE", "DARBY"];
+    private static readonly IReadOnlyDictionary<string, (int BookNumber, string DisplayName)> BookMap = BuildBookMap();
     private static readonly Regex RefRegex = new(
         @"^(?<book>[1-3]?\s*[A-Za-z]+)\s+(?<chapter>\d+)(?::(?<start>\d+)(?:-(?<end>\d+))?)?$",
         RegexOptions.Compiled);
@@ -124,13 +125,13 @@ public sealed class BibleApiTextProvider(
         var parsed = ParseReference(reference);
         if (parsed is null) return null;
 
-        var cacheKey = $"xmlpassage:{xmlPath}:{parsed.BookKey}:{parsed.Chapter}:{parsed.StartVerse}:{parsed.EndVerse}";
+        var cacheKey = $"xmlpassage:{xmlPath}:{parsed.BookNumber}:{parsed.Chapter}:{parsed.StartVerse}:{parsed.EndVerse}";
         if (cache.TryGetValue(cacheKey, out PassageResponse? cached) && cached is not null)
         {
             return cached;
         }
 
-        var chapterVerses = LoadChapterFromXml(xmlPath, parsed.BookKey, parsed.Chapter);
+        var chapterVerses = LoadChapterFromXml(xmlPath, parsed.BookNumber, parsed.Chapter);
         if (chapterVerses.Count == 0)
         {
             logger.LogWarning("No verses found in XML for {Reference} ({Translation})", reference, translation);
@@ -148,10 +149,10 @@ public sealed class BibleApiTextProvider(
         }
 
         var verses = selected
-            .Select(x => new VerseDto($"{parsed.BookDisplay} {parsed.Chapter}:{x.Key}", x.Value, parsed.Chapter, x.Key))
+            .Select(x => new VerseDto($"{parsed.BookDisplayName} {parsed.Chapter}:{x.Key}", x.Value, parsed.Chapter, x.Key))
             .ToArray();
 
-        var section = parsed.BookKey == "psalm" ? ReadingSection.Psalm : ReadingSection.John;
+        var section = parsed.BookNumber == 19 ? ReadingSection.Psalm : ReadingSection.John;
         var chunks = chunkingService.Chunk(section, verses).ToArray();
         var result = new PassageResponse(reference, translation, verses, chunks);
         cache.Set(cacheKey, result, TimeSpan.FromMinutes(30));
@@ -208,36 +209,24 @@ public sealed class BibleApiTextProvider(
             ? int.Parse(match.Groups["end"].Value)
             : hasStart ? startVerse : int.MaxValue;
 
-        string bookKey;
-        string display;
-        if (rawBook.StartsWith("Psalm", StringComparison.OrdinalIgnoreCase) || rawBook.StartsWith("Psalms", StringComparison.OrdinalIgnoreCase))
-        {
-            bookKey = "psalm";
-            display = "Psalm";
-        }
-        else if (rawBook.Equals("John", StringComparison.OrdinalIgnoreCase))
-        {
-            bookKey = "john";
-            display = "John";
-        }
-        else
+        var normalizedBook = NormalizeBookKey(rawBook);
+        if (!BookMap.TryGetValue(normalizedBook, out var mapping))
         {
             return null;
         }
 
-        return new ParsedReference(bookKey, display, chapter, startVerse, Math.Max(startVerse, endVerse));
+        return new ParsedReference(mapping.BookNumber, mapping.DisplayName, chapter, startVerse, Math.Max(startVerse, endVerse));
     }
 
-    private SortedDictionary<int, string> LoadChapterFromXml(string xmlPath, string bookKey, int chapterNumber)
+    private SortedDictionary<int, string> LoadChapterFromXml(string xmlPath, int bookNumber, int chapterNumber)
     {
-        var cacheKey = $"xmlchapter:{xmlPath}:{bookKey}:{chapterNumber}";
+        var cacheKey = $"xmlchapter:{xmlPath}:{bookNumber}:{chapterNumber}";
         if (cache.TryGetValue(cacheKey, out SortedDictionary<int, string>? cached) && cached is not null)
         {
             return cached;
         }
 
-        var targetBook = bookKey == "psalm" ? "psalm" : "john";
-        var targetBookNumber = bookKey == "psalm" ? "19" : "43";
+        var targetBookNumber = bookNumber.ToString();
         var verses = new SortedDictionary<int, string>();
 
         try
@@ -246,10 +235,8 @@ public sealed class BibleApiTextProvider(
             var book = doc.Descendants("BIBLEBOOK")
                 .FirstOrDefault(x =>
                 {
-                    var bname = (string?)x.Attribute("bname") ?? string.Empty;
                     var bnumber = (string?)x.Attribute("bnumber") ?? string.Empty;
-                    return string.Equals(bnumber, targetBookNumber, StringComparison.OrdinalIgnoreCase)
-                        || IsBookNameMatch(bname, targetBook);
+                    return string.Equals(bnumber, targetBookNumber, StringComparison.OrdinalIgnoreCase);
                 });
             if (book is null)
             {
@@ -280,18 +267,42 @@ public sealed class BibleApiTextProvider(
         return verses;
     }
 
-    private static bool IsBookNameMatch(string bookName, string targetBook)
+    private static string NormalizeBookKey(string raw)
     {
-        if (string.IsNullOrWhiteSpace(bookName)) return false;
-        var normalized = new string(bookName.Where(char.IsLetter).ToArray()).ToLowerInvariant();
-        var target = new string(targetBook.Where(char.IsLetter).ToArray()).ToLowerInvariant();
-
-        if (normalized == target) return true;
-
-        if (target == "psalm" && (normalized == "psalms" || normalized == "psalm")) return true;
-
-        return false;
+        if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+        var lowered = raw.Trim().ToLowerInvariant().Replace(".", string.Empty);
+        lowered = Regex.Replace(lowered, @"\s+", " ");
+        return lowered switch
+        {
+            "psalms" => "psalm",
+            "song of songs" => "song of solomon",
+            _ => lowered
+        };
     }
 
-    private sealed record ParsedReference(string BookKey, string BookDisplay, int Chapter, int StartVerse, int EndVerse);
+    private static IReadOnlyDictionary<string, (int BookNumber, string DisplayName)> BuildBookMap()
+    {
+        var books = new[]
+        {
+            "Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth","1 Samuel","2 Samuel",
+            "1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra","Nehemiah","Esther","Job","Psalm","Proverbs",
+            "Ecclesiastes","Song of Solomon","Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel","Hosea","Joel","Amos",
+            "Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai","Zechariah","Malachi","Matthew","Mark","Luke",
+            "John","Acts","Romans","1 Corinthians","2 Corinthians","Galatians","Ephesians","Philippians","Colossians",
+            "1 Thessalonians","2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon","Hebrews","James","1 Peter",
+            "2 Peter","1 John","2 John","3 John","Jude","Revelation"
+        };
+
+        var map = new Dictionary<string, (int, string)>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < books.Length; i++)
+        {
+            var display = books[i];
+            map[NormalizeBookKey(display)] = (i + 1, display);
+        }
+        map["psalms"] = map["psalm"];
+        map["song of songs"] = map["song of solomon"];
+        return map;
+    }
+
+    private sealed record ParsedReference(int BookNumber, string BookDisplayName, int Chapter, int StartVerse, int EndVerse);
 }

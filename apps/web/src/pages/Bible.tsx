@@ -30,15 +30,14 @@ const BOOKS: Array<{ name: string; chapters: number }> = [
   { name: "3 John", chapters: 1 }, { name: "Jude", chapters: 1 }, { name: "Revelation", chapters: 22 },
 ];
 
-const HIGHLIGHT_COLORS: Array<{ key: VerseHighlight["color"]; label: string; textClass: string }> = [
-  { key: "amber", label: "Amber", textClass: "text-amber-700" },
-  { key: "mint", label: "Mint", textClass: "text-emerald-700" },
-  { key: "sky", label: "Sky", textClass: "text-sky-700" },
-  { key: "rose", label: "Rose", textClass: "text-rose-700" },
-  { key: "lavender", label: "Lavender", textClass: "text-violet-700" },
+const HIGHLIGHT_COLORS: Array<{ key: VerseHighlight["color"]; label: string; textClass: string; decoClass: string }> = [
+  { key: "amber", label: "Amber", textClass: "text-amber-700", decoClass: "decoration-amber-500" },
+  { key: "mint", label: "Mint", textClass: "text-emerald-700", decoClass: "decoration-emerald-500" },
+  { key: "sky", label: "Sky", textClass: "text-sky-700", decoClass: "decoration-sky-500" },
+  { key: "rose", label: "Rose", textClass: "text-rose-700", decoClass: "decoration-rose-500" },
+  { key: "lavender", label: "Lavender", textClass: "text-violet-700", decoClass: "decoration-violet-500" },
 ];
 
-const GOSPELS = new Set(["Matthew", "Mark", "Luke", "John"]);
 
 function parseReference(reference: string): { book: string; chapter: string } {
   const match = (reference ?? "").trim().match(/^(?<book>.+?)\s+(?<chapter>\d+)/);
@@ -48,20 +47,6 @@ function parseReference(reference: string): { book: string; chapter: string } {
 
 function isOtEcho(text: string): boolean {
   return /(as it is written|scripture says|moses wrote|from the prophet|the prophet said|as david says|isaiah said)/i.test(text);
-}
-
-function renderVerseText(text: string, shouldAccentJesusWords: boolean) {
-  if (!shouldAccentJesusWords) return text;
-  const parts = text.split(/(".*?"|“.*?”)/g);
-  return parts.map((part, idx) => {
-    const isQuoted = /^(".*?"|“.*?”)$/.test(part);
-    if (!isQuoted) return <React.Fragment key={idx}>{part}</React.Fragment>;
-    return (
-      <span key={idx} className="font-medium underline decoration-primary/70 decoration-2 underline-offset-2">
-        {part}
-      </span>
-    );
-  });
 }
 
 export function BiblePage() {
@@ -222,39 +207,45 @@ export function BiblePage() {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-4xl mx-auto p-6 pb-24 space-y-5">
-        <div className="flex items-center justify-between">
-          <button onClick={() => navigate("/")} className="text-sm text-foreground-muted hover:text-foreground">&lt; Home</button>
-          <h1 className="text-2xl font-light text-foreground">Bible Studio</h1>
-          <div />
-        </div>
+      <div className="fixed top-0 left-0 right-0 z-30">
+        <div className="max-w-4xl mx-auto px-6 pt-4 pb-3 space-y-3">
+          <div className="glass-strong p-3 rounded-2xl relative">
+            <button onClick={() => navigate("/")} className="text-sm text-foreground-muted hover:text-foreground">&lt; Home</button>
+            <h1 className="text-2xl font-light text-foreground absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 whitespace-nowrap">
+              Bible Studio
+            </h1>
+          </div>
 
-        <div className="glass-strong p-3 rounded-2xl">
-          <div className="flex items-center gap-2 overflow-x-auto">
-            <select
-              value={book}
-              onChange={(e) => void onBookChange(e.target.value)}
-              className="min-w-[150px] h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
-            >
-              {BOOKS.map((b) => <option key={b.name} value={b.name}>{b.name}</option>)}
-            </select>
-            <select
-              value={chapter}
-              onChange={(e) => void onChapterChange(e.target.value)}
-              className="w-20 h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
-            >
-              {chapterOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <select
-              value={translation}
-              onChange={(e) => void onTranslationChange(e.target.value)}
-              className="min-w-[84px] h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
-            >
-              {(bootstrap?.supportedTranslations ?? []).map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            {isLoadingPassage && <span className="text-xs text-foreground-muted">Loading...</span>}
+          <div className="glass-strong p-3 rounded-2xl">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              <select
+                value={book}
+                onChange={(e) => void onBookChange(e.target.value)}
+                className="min-w-[150px] h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+              >
+                {BOOKS.map((b) => <option key={b.name} value={b.name}>{b.name}</option>)}
+              </select>
+              <select
+                value={chapter}
+                onChange={(e) => void onChapterChange(e.target.value)}
+                className="w-20 h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+              >
+                {chapterOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select
+                value={translation}
+                onChange={(e) => void onTranslationChange(e.target.value)}
+                className="min-w-[84px] h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+              >
+                {(bootstrap?.supportedTranslations ?? []).map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              {isLoadingPassage && <span className="text-xs text-foreground-muted">Loading...</span>}
+            </div>
           </div>
         </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto p-6 pt-44 pb-24 space-y-5">
 
         {selectedVerseRefs.length > 0 && (
           <div className="glass p-3 rounded-2xl border border-glass-border sticky top-2 z-20">
@@ -312,11 +303,12 @@ export function BiblePage() {
                 {passage.verses.map((verse) => {
                   const selected = selectedVerseRefs.includes(verse.ref);
                   const highlight = highlightByRef.get(verse.ref);
-                  const highlightClass = highlight
-                    ? HIGHLIGHT_COLORS.find((x) => x.key === highlight.color)?.textClass ?? "text-amber-700"
-                    : "text-foreground";
+                  const highlightStyle = highlight
+                    ? HIGHLIGHT_COLORS.find((x) => x.key === highlight.color)
+                    : undefined;
+                  const textClass = highlightStyle?.textClass ?? "text-foreground";
+                  const decoClass = highlightStyle?.decoClass ?? "decoration-transparent";
                   const showOtEcho = isOtEcho(verse.text);
-                  const accentJesus = GOSPELS.has(book);
 
                   return (
                     <button
@@ -325,9 +317,9 @@ export function BiblePage() {
                       className={`w-full text-left rounded-lg px-2 py-2 border transition-colors ${selected ? "ring-2 ring-primary border-primary/30" : "border-transparent"}`}
                     >
                       <div className="flex items-start gap-2">
-                        <p className={`flex-1 leading-relaxed ${highlightClass}`}>
+                        <p className={`flex-1 leading-relaxed underline decoration-2 underline-offset-4 ${decoClass} ${textClass}`}>
                           <span className="text-xs align-super mr-1 text-foreground-subtle">{verse.verse}</span>
-                          {renderVerseText(verse.text, accentJesus)}
+                          {verse.text}
                         </p>
                         {showOtEcho && (
                           <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-secondary text-foreground-muted">OT Echo</span>
