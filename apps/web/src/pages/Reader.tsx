@@ -441,6 +441,35 @@ export function Reader() {
     await playChunkAudio(currentChunkIndex);
   };
 
+  const openCurrentPassageInBibleStudio = () => {
+    if (!passage) return;
+    const params = new URLSearchParams({
+      ref: passage.ref,
+      translation: passage.translation,
+    });
+    navigate(`/bible?${params.toString()}`);
+  };
+
+  const shareCurrentPassage = async () => {
+    if (!passage) return;
+    const passageUrl = `${window.location.origin}/bible?ref=${encodeURIComponent(passage.ref)}&translation=${encodeURIComponent(passage.translation)}`;
+    const text = `${passage.ref} (${passage.translation})`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "QuietWord passage",
+          text,
+          url: passageUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(`${text}\n${passageUrl}`);
+      }
+      toast.success("Passage shared");
+    } catch {
+      toast.error("Unable to share passage");
+    }
+  };
+
   if (isLoading) {
     return <LoadingSpinner message="Loading passage..." />;
   }
@@ -572,8 +601,30 @@ export function Reader() {
           <div className="space-y-10">
             <div className="text-center space-y-3">
               <h1 className="text-2xl font-light text-foreground">{passage.ref}</h1>
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-secondary rounded-full">
-                <span className="text-xs font-medium text-foreground-muted uppercase tracking-wide">{passage.translation}</span>
+              <div className="inline-flex items-center gap-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-secondary rounded-full">
+                  <span className="text-xs font-medium text-foreground-muted uppercase tracking-wide">{passage.translation}</span>
+                </div>
+                <button
+                  onClick={openCurrentPassageInBibleStudio}
+                  className="w-9 h-9 rounded-full glass border border-glass-border hover:bg-glass-highlight flex items-center justify-center text-foreground"
+                  aria-label="Open passage in Bible Studio"
+                  title="Open in Bible Studio"
+                >
+                  <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.1} d="M14 3h7v7M10 14L21 3M20 14v5a2 2 0 01-2 2H7a2 2 0 01-2-2V8a2 2 0 012-2h5" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => void shareCurrentPassage()}
+                  className="w-9 h-9 rounded-full glass border border-glass-border hover:bg-glass-highlight flex items-center justify-center text-foreground"
+                  aria-label="Share passage"
+                  title="Share passage"
+                >
+                  <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.1} d="M12 16V7M8 11l4-4 4 4M5 13v5h14v-5" />
+                  </svg>
+                </button>
               </div>
               <div className="pt-1">
                 <button

@@ -60,36 +60,6 @@ export function Home() {
     }
   };
 
-  const openPassageInBibleStudio = (ref: string) => {
-    if (!bootstrap) return;
-    const params = new URLSearchParams({
-      ref,
-      translation: bootstrap.settings.translation,
-    });
-    navigate(`/bible?${params.toString()}`);
-  };
-
-  const sharePassage = async (ref: string) => {
-    if (!bootstrap) return;
-    const translation = bootstrap.settings.translation;
-    const passageUrl = `${window.location.origin}/bible?ref=${encodeURIComponent(ref)}&translation=${encodeURIComponent(translation)}`;
-    const text = `${ref} (${translation})`;
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "QuietWord passage",
-          text,
-          url: passageUrl,
-        });
-      } else {
-        await navigator.clipboard.writeText(`${text}\n${passageUrl}`);
-      }
-      toast.success("Passage shared");
-    } catch {
-      toast.error("Unable to share passage");
-    }
-  };
-
   if (isLoading) {
     return <LoadingSpinner message="Loading your reading..." />;
   }
@@ -177,62 +147,20 @@ export function Home() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="glass p-5 rounded-2xl transition-all text-left border border-glass-border hover:border-primary/50 hover:bg-primary/5 group/btn space-y-3">
-                  <button onClick={() => navigate("/settle/john")} className="w-full text-left">
-                    <div className="text-lg font-medium text-foreground group-hover/btn:text-primary transition-colors">Gospel</div>
-                    <div className="text-foreground-muted text-sm mt-2 font-mono">{today.johnRef}</div>
-                  </button>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => openPassageInBibleStudio(today.johnRef)}
-                      className="w-9 h-9 rounded-full glass border border-glass-border hover:bg-glass-highlight flex items-center justify-center text-foreground"
-                      aria-label="Open Gospel passage in Bible Studio"
-                      title="Open in Bible Studio"
-                    >
-                      <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.1} d="M14 3h7v7M10 14L21 3M20 14v5a2 2 0 01-2 2H7a2 2 0 01-2-2V8a2 2 0 012-2h5" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => void sharePassage(today.johnRef)}
-                      className="w-9 h-9 rounded-full glass border border-glass-border hover:bg-glass-highlight flex items-center justify-center text-foreground"
-                      aria-label="Share Gospel passage"
-                      title="Share passage"
-                    >
-                      <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.1} d="M12 16V7M8 11l4-4 4 4M5 13v5h14v-5" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                <div className="glass p-5 rounded-2xl transition-all text-left border border-glass-border hover:border-accent/50 hover:bg-accent/5 group/btn space-y-3">
-                  <button onClick={() => navigate("/settle/psalm")} className="w-full text-left">
-                    <div className="text-lg font-medium text-foreground group-hover/btn:text-accent transition-colors">Psalm</div>
-                    <div className="text-foreground-muted text-sm mt-2 font-mono">{today.psalmRef}</div>
-                  </button>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => openPassageInBibleStudio(today.psalmRef)}
-                      className="w-9 h-9 rounded-full glass border border-glass-border hover:bg-glass-highlight flex items-center justify-center text-foreground"
-                      aria-label="Open Psalm passage in Bible Studio"
-                      title="Open in Bible Studio"
-                    >
-                      <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.1} d="M14 3h7v7M10 14L21 3M20 14v5a2 2 0 01-2 2H7a2 2 0 01-2-2V8a2 2 0 012-2h5" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => void sharePassage(today.psalmRef)}
-                      className="w-9 h-9 rounded-full glass border border-glass-border hover:bg-glass-highlight flex items-center justify-center text-foreground"
-                      aria-label="Share Psalm passage"
-                      title="Share passage"
-                    >
-                      <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.1} d="M12 16V7M8 11l4-4 4 4M5 13v5h14v-5" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+                <button
+                  onClick={() => navigate("/settle/john")}
+                  className="glass p-6 rounded-2xl transition-all text-left border border-glass-border hover:border-primary/50 hover:bg-primary/5 group/btn"
+                >
+                  <div className="text-lg font-medium text-foreground group-hover/btn:text-primary transition-colors">Gospel</div>
+                  <div className="text-foreground-muted text-sm mt-2 font-mono">{today.johnRef}</div>
+                </button>
+                <button
+                  onClick={() => navigate("/settle/psalm")}
+                  className="glass p-6 rounded-2xl transition-all text-left border border-glass-border hover:border-accent/50 hover:bg-accent/5 group/btn"
+                >
+                  <div className="text-lg font-medium text-foreground group-hover/btn:text-accent transition-colors">Psalm</div>
+                  <div className="text-foreground-muted text-sm mt-2 font-mono">{today.psalmRef}</div>
+                </button>
               </div>
             </div>
           </div>
@@ -251,62 +179,20 @@ export function Home() {
               <p className="text-foreground-muted mt-2">Well done. Tomorrow's reading unlocks tomorrow.</p>
               <div className="pt-4 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="glass p-4 rounded-xl border border-glass-border hover:border-primary/50 hover:bg-primary/5 transition-all text-left space-y-2">
-                    <button onClick={() => navigate("/reader/john")} className="w-full text-left">
-                      <div className="text-sm font-medium text-foreground">Review Gospel</div>
-                      <div className="text-xs text-foreground-muted mt-1 font-mono">{today.johnRef}</div>
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => openPassageInBibleStudio(today.johnRef)}
-                        className="w-8 h-8 rounded-full glass border border-glass-border hover:bg-glass-highlight flex items-center justify-center text-foreground"
-                        aria-label="Open Gospel review passage in Bible Studio"
-                        title="Open in Bible Studio"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.1} d="M14 3h7v7M10 14L21 3M20 14v5a2 2 0 01-2 2H7a2 2 0 01-2-2V8a2 2 0 012-2h5" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => void sharePassage(today.johnRef)}
-                        className="w-8 h-8 rounded-full glass border border-glass-border hover:bg-glass-highlight flex items-center justify-center text-foreground"
-                        aria-label="Share Gospel review passage"
-                        title="Share passage"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.1} d="M12 16V7M8 11l4-4 4 4M5 13v5h14v-5" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                  <div className="glass p-4 rounded-xl border border-glass-border hover:border-accent/50 hover:bg-accent/5 transition-all text-left space-y-2">
-                    <button onClick={() => navigate("/reader/psalm")} className="w-full text-left">
-                      <div className="text-sm font-medium text-foreground">Review Psalm</div>
-                      <div className="text-xs text-foreground-muted mt-1 font-mono">{today.psalmRef}</div>
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => openPassageInBibleStudio(today.psalmRef)}
-                        className="w-8 h-8 rounded-full glass border border-glass-border hover:bg-glass-highlight flex items-center justify-center text-foreground"
-                        aria-label="Open Psalm review passage in Bible Studio"
-                        title="Open in Bible Studio"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.1} d="M14 3h7v7M10 14L21 3M20 14v5a2 2 0 01-2 2H7a2 2 0 01-2-2V8a2 2 0 012-2h5" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => void sharePassage(today.psalmRef)}
-                        className="w-8 h-8 rounded-full glass border border-glass-border hover:bg-glass-highlight flex items-center justify-center text-foreground"
-                        aria-label="Share Psalm review passage"
-                        title="Share passage"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.1} d="M12 16V7M8 11l4-4 4 4M5 13v5h14v-5" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
+                  <button
+                    onClick={() => navigate("/reader/john")}
+                    className="glass p-4 rounded-xl border border-glass-border hover:border-primary/50 hover:bg-primary/5 transition-all text-left"
+                  >
+                    <div className="text-sm font-medium text-foreground">Review Gospel</div>
+                    <div className="text-xs text-foreground-muted mt-1 font-mono">{today.johnRef}</div>
+                  </button>
+                  <button
+                    onClick={() => navigate("/reader/psalm")}
+                    className="glass p-4 rounded-xl border border-glass-border hover:border-accent/50 hover:bg-accent/5 transition-all text-left"
+                  >
+                    <div className="text-sm font-medium text-foreground">Review Psalm</div>
+                    <div className="text-xs text-foreground-muted mt-1 font-mono">{today.psalmRef}</div>
+                  </button>
                 </div>
               </div>
             </div>
