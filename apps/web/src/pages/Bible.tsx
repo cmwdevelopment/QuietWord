@@ -25,16 +25,17 @@ const HIGHLIGHT_COLORS: Array<{ key: VerseHighlight["color"]; label: string; cla
   { key: "lavender", label: "Lavender", className: "bg-violet-200 border-violet-300" },
 ];
 
-function parseReference(reference: string): { book: string; chapter: string; start: string; end: string } {
+function parseReference(reference: string): { book: string; chapter: string; range: string } {
   const m = (reference ?? "").trim().match(/^(?<book>.+?)\s+(?<chapter>\d+)(?::(?<start>\d+)(?:-(?<end>\d+))?)?$/);
   if (!m?.groups) {
-    return { book: "John", chapter: "1", start: "", end: "" };
+    return { book: "John", chapter: "1", range: "" };
   }
+  const start = m.groups.start ?? "";
+  const end = m.groups.end ?? "";
   return {
     book: m.groups.book ?? "John",
     chapter: m.groups.chapter ?? "1",
-    start: m.groups.start ?? "",
-    end: m.groups.end ?? "",
+    range: start ? (end ? `${start}-${end}` : start) : "",
   };
 }
 
@@ -45,8 +46,7 @@ export function BiblePage() {
   const [compareTranslation, setCompareTranslation] = useState<Translation | "">("");
   const [book, setBook] = useState("John");
   const [chapter, setChapter] = useState("1");
-  const [verseStart, setVerseStart] = useState("");
-  const [verseEnd, setVerseEnd] = useState("");
+  const [verseRange, setVerseRange] = useState("");
   const [passage, setPassage] = useState<Passage | null>(null);
   const [comparePassage, setComparePassage] = useState<Passage | null>(null);
   const [highlights, setHighlights] = useState<VerseHighlight[]>([]);
@@ -63,12 +63,10 @@ export function BiblePage() {
 
   const currentReference = useMemo(() => {
     const c = (chapter || "1").trim();
-    const start = verseStart.trim();
-    const end = verseEnd.trim();
-    if (!start) return `${book} ${c}`;
-    if (!end) return `${book} ${c}:${start}`;
-    return `${book} ${c}:${start}-${end}`;
-  }, [book, chapter, verseStart, verseEnd]);
+    const range = verseRange.trim();
+    if (!range) return `${book} ${c}`;
+    return `${book} ${c}:${range}`;
+  }, [book, chapter, verseRange]);
 
   useEffect(() => {
     void initialize();
@@ -84,8 +82,7 @@ export function BiblePage() {
       const parsed = parseReference(initialRef);
       setBook(parsed.book);
       setChapter(parsed.chapter);
-      setVerseStart(parsed.start);
-      setVerseEnd(parsed.end);
+      setVerseRange(parsed.range);
       await loadPassage(initialRef, boot.settings.translation, "");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load Bible module");
@@ -186,11 +183,11 @@ export function BiblePage() {
         </div>
 
         <div className="glass-strong p-3 rounded-2xl space-y-2">
-          <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
             <select
               value={book}
               onChange={(e) => setBook(e.target.value)}
-              className="col-span-2 md:col-span-4 p-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+              className="min-w-[140px] h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
             >
               {BIBLE_BOOKS.map((b) => (
                 <option key={b} value={b}>{b}</option>
@@ -201,42 +198,32 @@ export function BiblePage() {
               min={1}
               value={chapter}
               onChange={(e) => setChapter(e.target.value)}
-              className="col-span-1 md:col-span-2 p-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+              className="w-16 h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
               placeholder="Ch"
             />
             <input
-              type="number"
-              min={1}
-              value={verseStart}
-              onChange={(e) => setVerseStart(e.target.value)}
-              className="col-span-1 md:col-span-2 p-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
-              placeholder="V1"
+              value={verseRange}
+              onChange={(e) => setVerseRange(e.target.value)}
+              className="w-24 h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+              placeholder="1-14"
             />
-            <input
-              type="number"
-              min={1}
-              value={verseEnd}
-              onChange={(e) => setVerseEnd(e.target.value)}
-              className="col-span-1 md:col-span-2 p-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
-              placeholder="V2"
-            />
-            <div className="col-span-1 md:col-span-2">
+            <select
+              value={translation}
+              onChange={(e) => setTranslation(e.target.value)}
+              className="min-w-[80px] h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+            >
+              {(bootstrap?.supportedTranslations ?? []).map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <div className="min-w-[84px]">
               <PrimaryButton onClick={() => void handleLoad()} disabled={isLoadingPassage}>
               {isLoadingPassage ? "Loading..." : "Load"}
               </PrimaryButton>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
-            <select
-              value={translation}
-              onChange={(e) => setTranslation(e.target.value)}
-              className="p-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
-            >
-              {(bootstrap?.supportedTranslations ?? []).map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
             <select
               value={compareTranslation}
               onChange={async (e) => {
@@ -244,7 +231,7 @@ export function BiblePage() {
                 setCompareTranslation(next);
                 await loadPassage(currentReference, translation, next);
               }}
-              className="p-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+              className="h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
             >
               <option value="">Compare: Off</option>
               {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => (
@@ -293,27 +280,29 @@ export function BiblePage() {
 
         {passage && (
           <div className={`grid gap-4 ${comparePassage ? "md:grid-cols-2" : "grid-cols-1"}`}>
-            <div className="glass p-5 rounded-2xl border border-glass-border">
+            <div className="glass p-4 rounded-2xl border border-glass-border">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-medium text-foreground">{passage.ref}</h2>
                 <span className="text-xs text-foreground-muted">{passage.translation}</span>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-0.5">
                 {passage.verses.map((verse) => {
                   const isSelected = selectedVerseRefs.includes(verse.ref);
                   const h = highlightByRef.get(verse.ref);
                   const hasHighlight = Boolean(h);
                   const colorClass = h
                     ? HIGHLIGHT_COLORS.find((x) => x.key === h.color)?.className ?? "bg-amber-100 border-amber-300"
-                    : "bg-transparent border-glass-border";
+                    : "bg-transparent border-transparent";
                   return (
                     <button
                       key={verse.ref}
                       onClick={() => toggleVerseSelection(verse.ref)}
-                      className={`w-full text-left rounded-xl border p-3 transition-colors ${colorClass} ${isSelected ? "ring-2 ring-primary" : ""} ${hasHighlight ? "text-slate-900" : ""}`}
+                      className={`w-full text-left rounded-lg border px-2 py-2 transition-colors ${colorClass} ${isSelected ? "ring-2 ring-primary" : ""} ${hasHighlight ? "text-slate-900" : ""}`}
                     >
-                      <p className={`text-xs mb-1 ${hasHighlight ? "text-slate-600" : "text-foreground-subtle"}`}>{verse.ref}</p>
-                      <p className={`${hasHighlight ? "text-slate-900" : "text-foreground"} leading-relaxed`}>{verse.text}</p>
+                      <p className={`${hasHighlight ? "text-slate-900" : "text-foreground"} leading-relaxed`}>
+                        <span className={`text-xs align-super mr-1 ${hasHighlight ? "text-slate-600" : "text-foreground-subtle"}`}>{verse.verse}</span>
+                        {verse.text}
+                      </p>
                     </button>
                   );
                 })}
@@ -321,16 +310,18 @@ export function BiblePage() {
             </div>
 
             {comparePassage && (
-              <div className="glass p-5 rounded-2xl border border-glass-border">
+              <div className="glass p-4 rounded-2xl border border-glass-border">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-lg font-medium text-foreground">{comparePassage.ref}</h2>
                   <span className="text-xs text-foreground-muted">{comparePassage.translation}</span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-0.5">
                   {comparePassage.verses.map((verse) => (
-                    <div key={verse.ref} className="rounded-xl border border-glass-border p-3">
-                      <p className="text-xs text-foreground-subtle mb-1">{verse.ref}</p>
-                      <p className="text-foreground leading-relaxed">{verse.text}</p>
+                    <div key={verse.ref} className="rounded-lg border border-transparent px-2 py-2">
+                      <p className="text-foreground leading-relaxed">
+                        <span className="text-xs align-super mr-1 text-foreground-subtle">{verse.verse}</span>
+                        {verse.text}
+                      </p>
                     </div>
                   ))}
                 </div>
