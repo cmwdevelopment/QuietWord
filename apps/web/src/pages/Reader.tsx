@@ -40,6 +40,25 @@ export function Reader() {
   const sectionName = section === "john" ? "John" : "Psalm";
   const sectionDisplay = section === "john" ? "Gospel of John" : "Psalm";
 
+  const buildProgressStorageKey = (ref: string) => `quietword.reader.progress.${sectionName.toLowerCase()}.${ref.toLowerCase()}`;
+  const readLocalProgress = (ref: string) => {
+    try {
+      const raw = sessionStorage.getItem(buildProgressStorageKey(ref));
+      if (!raw) return null;
+      const parsed = Number.parseInt(raw, 10);
+      return Number.isNaN(parsed) ? null : parsed;
+    } catch {
+      return null;
+    }
+  };
+  const writeLocalProgress = (ref: string, chunkIndex: number) => {
+    try {
+      sessionStorage.setItem(buildProgressStorageKey(ref), String(chunkIndex));
+    } catch {
+      // Ignore storage limitations/private mode quirks.
+    }
+  };
+
   const todayRef = useMemo(() => {
     if (!bootstrap) return "";
     return section === "john" ? bootstrap.today.johnRef : bootstrap.today.psalmRef;
@@ -105,15 +124,28 @@ export function Reader() {
       const passageData = await api.getPassage(ref, bootstrapData.settings.translation);
       setPassage(passageData);
 
+      const resumeIndex =
+        bootstrapData.resume &&
+        bootstrapData.resume.section === sectionName &&
+        bootstrapData.resume.lastRef === ref
+          ? bootstrapData.resume.lastChunkIndex
+          : 0;
+      const localIndex = readLocalProgress(ref) ?? 0;
+      const nextIndex = Math.min(
+        Math.max(resumeIndex, localIndex, 0),
+        Math.max(0, passageData.chunks.length - 1),
+      );
+
       if (
         bootstrapData.resume &&
         bootstrapData.resume.section === sectionName &&
         bootstrapData.resume.lastRef === ref
       ) {
-        setCurrentChunkIndex(bootstrapData.resume.lastChunkIndex);
+        setCurrentChunkIndex(nextIndex);
       } else {
-        setCurrentChunkIndex(0);
+        setCurrentChunkIndex(nextIndex);
       }
+      writeLocalProgress(ref, nextIndex);
 
       setIsComplete(false);
       setShowCheckpoint(false);
@@ -146,6 +178,7 @@ export function Reader() {
 
   const saveResumeState = async (chunkIndex: number) => {
     if (!passage) return;
+    writeLocalProgress(passage.ref, chunkIndex);
 
     try {
       await api.saveResumeState({
@@ -367,6 +400,9 @@ export function Reader() {
 
   const handleCompleteSection = async () => {
     stopAudio();
+    if (passage) {
+      writeLocalProgress(passage.ref, Math.max(0, passage.chunks.length - 1));
+    }
     if (section === "john") {
       toast.success("Gospel complete. Ready for the Psalm?");
       navigate("/settle/psalm");

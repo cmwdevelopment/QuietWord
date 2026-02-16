@@ -65,6 +65,7 @@ export function BiblePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPassage, setIsLoadingPassage] = useState(false);
   const [isLoadingCompare, setIsLoadingCompare] = useState(false);
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
 
   const currentReference = `${book} ${chapter}`;
   const chapterCount = useMemo(() => BOOKS.find((x) => x.name === book)?.chapters ?? 1, [book]);
@@ -74,6 +75,15 @@ export function BiblePage() {
     for (const h of highlights) map.set(h.verseRef, h);
     return map;
   }, [highlights]);
+  const selectedSet = useMemo(() => new Set(selectedVerseRefs), [selectedVerseRefs]);
+  const selectedPrimaryVerses = useMemo(
+    () => (passage?.verses ?? []).filter((v) => selectedSet.has(v.ref)),
+    [passage, selectedSet],
+  );
+  const selectedCompareVerses = useMemo(
+    () => (comparePassage?.verses ?? []).filter((v) => selectedSet.has(v.ref)),
+    [comparePassage, selectedSet],
+  );
 
   React.useEffect(() => {
     void initialize();
@@ -157,6 +167,7 @@ export function BiblePage() {
       setCompareTranslation("");
       setComparePassage(null);
       setIsLoadingCompare(false);
+      setIsCompareModalOpen(false);
       return;
     }
     const available = (bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation);
@@ -176,6 +187,7 @@ export function BiblePage() {
     if (!nextCompare) {
       setComparePassage(null);
       setIsLoadingCompare(false);
+      setIsCompareModalOpen(false);
       return;
     }
     setIsLoadingCompare(true);
@@ -217,11 +229,11 @@ export function BiblePage() {
 
   const shareSelection = async () => {
     if (!passage || selectedVerseRefs.length === 0) return;
-    const selectedSet = new Set(selectedVerseRefs);
     const selectedVerses = passage.verses.filter((v) => selectedSet.has(v.ref));
     if (!selectedVerses.length) return;
 
-    const content = `${selectedVerses.map((v) => v.text).join("\n")}\n\n${selectedVerses.map((v) => v.ref).join(", ")} (${translation})`;
+    const citation = formatSelectionCitation(selectedVerses);
+    const content = `${selectedVerses.map((v) => v.text).join("\n")}\n\n${citation} (${translation})`;
     try {
       if (navigator.share) {
         await navigator.share({ title: currentReference, text: content });
@@ -232,6 +244,22 @@ export function BiblePage() {
     } catch {
       toast.error("Unable to share selection");
     }
+  };
+
+  const openCompareModal = () => {
+    if (!compareEnabled || !compareTranslation) {
+      toast.error("Enable compare and choose a translation first");
+      return;
+    }
+    if (!selectedVerseRefs.length) {
+      toast.error("Select one or more verses first");
+      return;
+    }
+    if (!comparePassage) {
+      toast.error("Comparison passage is still loading");
+      return;
+    }
+    setIsCompareModalOpen(true);
   };
 
   if (isLoading) return <LoadingSpinner message="Loading Bible module..." />;
@@ -326,6 +354,19 @@ export function BiblePage() {
                 />
               ))}
 
+              {compareEnabled && (
+                <button
+                  onClick={openCompareModal}
+                  className="w-10 h-10 rounded-full glass border border-glass-border flex items-center justify-center"
+                  aria-label="Open compare"
+                  title="Compare selected verses"
+                >
+                  <svg className="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M3 7h8M3 12h6M3 17h8M13 7h8M15 12h6M13 17h8" />
+                  </svg>
+                </button>
+              )}
+
               <button
                 onClick={() => void clearHighlights()}
                 className="w-10 h-10 rounded-full glass border border-glass-border flex items-center justify-center"
@@ -349,7 +390,10 @@ export function BiblePage() {
               </button>
 
               <button
-                onClick={() => setSelectedVerseRefs([])}
+                onClick={() => {
+                  setSelectedVerseRefs([]);
+                  setIsCompareModalOpen(false);
+                }}
                 className="w-10 h-10 rounded-full glass border border-glass-border flex items-center justify-center"
                 aria-label="Clear selection"
                 title="Clear selection"
@@ -366,7 +410,7 @@ export function BiblePage() {
       <div className={`max-w-4xl mx-auto p-6 space-y-5 ${selectedVerseRefs.length > 0 ? "pt-44 pb-44" : "pt-44 pb-32"}`}>
 
         {passage && (
-          <div className={`grid gap-4 ${comparePassage ? "md:grid-cols-2" : "grid-cols-1"}`}>
+          <div className="grid gap-4 grid-cols-1">
             <div className="glass p-4 rounded-2xl border border-glass-border">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-medium text-foreground">{passage.ref}</h2>
@@ -401,39 +445,86 @@ export function BiblePage() {
               </div>
             </div>
 
-            {comparePassage && (
-              <div className="glass p-4 rounded-2xl border border-glass-border">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-medium text-foreground">{comparePassage.ref}</h2>
-                  <span className="text-xs text-foreground-muted">{comparePassage.translation}</span>
-                </div>
-                <div className="space-y-0.5">
-                  {comparePassage.verses.map((verse) => (
-                    <div key={verse.ref} className="rounded-lg px-2 py-2">
-                      <p className="text-foreground leading-relaxed">
-                        <span className="text-xs align-super mr-1 text-foreground-subtle">{verse.verse}</span>
-                        {verse.text}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {compareEnabled && !comparePassage && (
-              <div className="glass p-4 rounded-2xl border border-glass-border">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-medium text-foreground">Compare</h2>
-                  <span className="text-xs text-foreground-muted">{compareTranslation || "Off"}</span>
-                </div>
-                <p className="text-sm text-foreground-muted">
-                  {isLoadingCompare ? "Loading comparison translation..." : "Choose a compare translation to view side-by-side text."}
-                </p>
-              </div>
-            )}
           </div>
         )}
       </div>
+
+      {isCompareModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 px-4 py-6" onClick={() => setIsCompareModalOpen(false)}>
+          <div
+            className="max-w-3xl mx-auto glass-strong rounded-2xl border border-glass-border p-4 max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-medium text-foreground">Compare Selected Verses</h2>
+              <button
+                onClick={() => setIsCompareModalOpen(false)}
+                className="w-9 h-9 rounded-full glass border border-glass-border flex items-center justify-center"
+                aria-label="Close compare"
+              >
+                <svg className="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="text-xs text-foreground-muted mb-4">
+              {translation} vs {compareTranslation || "Off"}
+            </p>
+            {isLoadingCompare ? (
+              <p className="text-sm text-foreground-muted">Loading comparison translation...</p>
+            ) : (
+              <div className="space-y-3">
+                {selectedPrimaryVerses.map((verse) => {
+                  const compareVerse = selectedCompareVerses.find((v) => v.ref === verse.ref);
+                  return (
+                    <div key={verse.ref} className="rounded-xl border border-glass-border p-3 bg-black/[0.05]">
+                      <p className="text-xs text-foreground-muted mb-2">{verse.ref}</p>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wide text-foreground-subtle mb-1">{translation}</p>
+                          <p className="text-sm leading-relaxed text-foreground">{verse.text}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wide text-foreground-subtle mb-1">{compareTranslation}</p>
+                          <p className="text-sm leading-relaxed text-foreground">{compareVerse?.text ?? "Not available"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function parseChapterVerse(ref: string): { chapter: number; verse: number } | null {
+  const match = ref.match(/(\d+):(\d+)$/);
+  if (!match) return null;
+  return { chapter: Number.parseInt(match[1], 10), verse: Number.parseInt(match[2], 10) };
+}
+
+function formatSelectionCitation(verses: Array<{ ref: string }>): string {
+  if (verses.length === 0) return "";
+  const refs = verses.map((v) => v.ref);
+  const parsed = refs.map(parseChapterVerse);
+  const allParsed = parsed.every((p) => p !== null);
+  if (!allParsed) return refs.join(", ");
+
+  const values = parsed as Array<{ chapter: number; verse: number }>;
+  const first = values[0];
+  const sameChapter = values.every((v) => v.chapter === first.chapter);
+  const sequential = values.every((v, idx) => idx === 0 || v.verse === values[idx - 1].verse + 1);
+
+  if (sameChapter && sequential) {
+    const firstVerse = values[0].verse;
+    const lastVerse = values[values.length - 1].verse;
+    const prefix = refs[0].replace(/:\d+$/, "");
+    return firstVerse === lastVerse ? `${prefix}:${firstVerse}` : `${prefix}:${firstVerse}-${lastVerse}`;
+  }
+
+  return refs.join(", ");
 }
