@@ -30,12 +30,12 @@ const BOOKS: Array<{ name: string; chapters: number }> = [
   { name: "3 John", chapters: 1 }, { name: "Jude", chapters: 1 }, { name: "Revelation", chapters: 22 },
 ];
 
-const HIGHLIGHT_COLORS: Array<{ key: VerseHighlight["color"]; label: string; textClass: string; decoClass: string }> = [
-  { key: "amber", label: "Amber", textClass: "text-amber-700", decoClass: "decoration-amber-500" },
-  { key: "mint", label: "Mint", textClass: "text-emerald-700", decoClass: "decoration-emerald-500" },
-  { key: "sky", label: "Sky", textClass: "text-sky-700", decoClass: "decoration-sky-500" },
-  { key: "rose", label: "Rose", textClass: "text-rose-700", decoClass: "decoration-rose-500" },
-  { key: "lavender", label: "Lavender", textClass: "text-violet-700", decoClass: "decoration-violet-500" },
+const HIGHLIGHT_COLORS: Array<{ key: VerseHighlight["color"]; label: string; bgClass: string }> = [
+  { key: "amber", label: "Amber", bgClass: "bg-amber-200/70" },
+  { key: "mint", label: "Mint", bgClass: "bg-emerald-200/70" },
+  { key: "sky", label: "Sky", bgClass: "bg-sky-200/70" },
+  { key: "rose", label: "Rose", bgClass: "bg-rose-200/70" },
+  { key: "lavender", label: "Lavender", bgClass: "bg-violet-200/70" },
 ];
 
 
@@ -245,52 +245,56 @@ export function BiblePage() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-6 pt-44 pb-24 space-y-5">
-
-        {selectedVerseRefs.length > 0 && (
-          <div className="glass p-3 rounded-2xl border border-glass-border sticky top-2 z-20">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-foreground-muted"><span className="font-medium text-foreground">{selectedVerseRefs.length}</span> selected</p>
-              <button onClick={() => setSelectedVerseRefs([])} className="text-xs px-2 py-1 rounded-full glass border border-glass-border">Clear</button>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => void onCompareToggle()}
-                className={`h-8 px-3 rounded-lg border text-xs ${compareEnabled ? "bg-primary/15 border-primary/40 text-foreground" : "glass border-glass-border text-foreground-muted"}`}
-              >
-                Compare
-              </button>
-              {compareEnabled && (
-                <select
-                  value={compareTranslation}
-                  onChange={(e) => void onCompareTranslationChange(e.target.value as Translation | "")}
-                  className="h-8 min-w-[90px] px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-xs"
-                >
-                  <option value="">Off</option>
-                  {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              )}
-              {HIGHLIGHT_COLORS.map((c) => (
+      {selectedVerseRefs.length > 0 && (
+        <div className="fixed left-0 right-0 top-[136px] z-30">
+          <div className="max-w-4xl mx-auto px-6">
+            <div className="glass p-3 rounded-2xl border border-glass-border">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-foreground-muted"><span className="font-medium text-foreground">{selectedVerseRefs.length}</span> selected</p>
+                <button onClick={() => setSelectedVerseRefs([])} className="text-xs px-2 py-1 rounded-full glass border border-glass-border">Clear</button>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  key={c.key}
-                  onClick={() => void applyHighlight(c.key)}
-                  className={`w-6 h-6 rounded-full border ${activeColor === c.key ? "border-white" : "border-white/30"}`}
-                  style={{
-                    backgroundColor:
-                      c.key === "amber" ? "#f59e0b" :
-                      c.key === "mint" ? "#10b981" :
-                      c.key === "sky" ? "#0ea5e9" :
-                      c.key === "rose" ? "#f43f5e" : "#8b5cf6",
-                  }}
-                  aria-label={`Use ${c.label}`}
-                  title={c.label}
-                />
-              ))}
-              <button onClick={() => void clearHighlights()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">Remove</button>
-              <button onClick={() => void shareSelection()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">Share</button>
+                  onClick={() => void onCompareToggle()}
+                  className={`h-8 px-3 rounded-lg border text-xs ${compareEnabled ? "bg-primary/15 border-primary/40 text-foreground" : "glass border-glass-border text-foreground-muted"}`}
+                >
+                  Compare
+                </button>
+                {compareEnabled && (
+                  <select
+                    value={compareTranslation}
+                    onChange={(e) => void onCompareTranslationChange(e.target.value as Translation | "")}
+                    className="h-8 min-w-[90px] px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-xs"
+                  >
+                    <option value="">Off</option>
+                    {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                )}
+                {HIGHLIGHT_COLORS.map((c) => (
+                  <button
+                    key={c.key}
+                    onClick={() => void applyHighlight(c.key)}
+                    className={`w-6 h-6 rounded-full border ${activeColor === c.key ? "border-white" : "border-white/30"}`}
+                    style={{
+                      backgroundColor:
+                        c.key === "amber" ? "#f59e0b" :
+                        c.key === "mint" ? "#10b981" :
+                        c.key === "sky" ? "#0ea5e9" :
+                        c.key === "rose" ? "#f43f5e" : "#8b5cf6",
+                    }}
+                    aria-label={`Use ${c.label}`}
+                    title={c.label}
+                  />
+                ))}
+                <button onClick={() => void clearHighlights()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">Remove</button>
+                <button onClick={() => void shareSelection()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">Share</button>
+              </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
+
+      <div className={`max-w-4xl mx-auto p-6 pb-24 space-y-5 ${selectedVerseRefs.length > 0 ? "pt-[250px]" : "pt-44"}`}>
 
         {passage && (
           <div className={`grid gap-4 ${comparePassage ? "md:grid-cols-2" : "grid-cols-1"}`}>
@@ -303,11 +307,8 @@ export function BiblePage() {
                 {passage.verses.map((verse) => {
                   const selected = selectedVerseRefs.includes(verse.ref);
                   const highlight = highlightByRef.get(verse.ref);
-                  const highlightStyle = highlight
-                    ? HIGHLIGHT_COLORS.find((x) => x.key === highlight.color)
-                    : undefined;
-                  const textClass = highlightStyle?.textClass ?? "text-foreground";
-                  const decoClass = highlightStyle?.decoClass ?? "decoration-transparent";
+                  const highlightStyle = highlight ? HIGHLIGHT_COLORS.find((x) => x.key === highlight.color) : undefined;
+                  const bgClass = highlightStyle?.bgClass ?? "";
                   const showOtEcho = isOtEcho(verse.text);
 
                   return (
@@ -317,9 +318,9 @@ export function BiblePage() {
                       className={`w-full text-left rounded-lg px-2 py-2 border transition-colors ${selected ? "ring-2 ring-primary border-primary/30" : "border-transparent"}`}
                     >
                       <div className="flex items-start gap-2">
-                        <p className={`flex-1 leading-relaxed underline decoration-2 underline-offset-4 ${decoClass} ${textClass}`}>
+                        <p className="flex-1 leading-relaxed text-foreground">
                           <span className="text-xs align-super mr-1 text-foreground-subtle">{verse.verse}</span>
-                          {verse.text}
+                          <span className={`px-1 rounded ${bgClass}`}>{verse.text}</span>
                         </p>
                         {showOtEcho && (
                           <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-secondary text-foreground-muted">OT Echo</span>
