@@ -9,6 +9,7 @@ import { Notes } from "../pages/Notes";
 import { Settings } from "../pages/Settings";
 import { SignIn } from "../pages/SignIn";
 import { FeedbackPage } from "../pages/Feedback";
+import { AdminPage } from "../pages/Admin";
 import ThemePreview from "../pages/ThemePreview";
 import { NotFound } from "../pages/NotFound";
 
@@ -44,6 +45,10 @@ export const router = createBrowserRouter([
   {
     path: "/feedback",
     Component: FeedbackPage,
+  },
+  {
+    path: "/admin",
+    Component: AdminPage,
   },
   {
     path: "/theme-preview",

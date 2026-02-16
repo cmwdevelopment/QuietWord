@@ -16,6 +16,7 @@ import type {
   AuthMe,
   Feedback,
   CreateFeedbackPayload,
+  AdminOverview,
 } from "./types";
 import { config } from "./config";
 import { mockApi } from "./mock-api";
@@ -25,6 +26,14 @@ class ApiClient {
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
+  }
+
+  private getTimezoneHeader(): string {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch {
+      return "UTC";
+    }
   }
 
   private async request<T>(
@@ -37,6 +46,7 @@ class ApiClient {
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
+        "X-Timezone": this.getTimezoneHeader(),
         ...options?.headers,
       },
     });
@@ -167,7 +177,10 @@ class ApiClient {
     const response = await fetch(url, {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Timezone": this.getTimezoneHeader(),
+      },
       body: JSON.stringify(payload),
     });
 
@@ -190,6 +203,11 @@ class ApiClient {
   async getFeedback(limit = 20): Promise<Feedback[]> {
     if (config.isDemoMode) return mockApi.getFeedback(limit);
     return this.request<Feedback[]>(`/feedback?limit=${limit}`);
+  }
+
+  async getAdminOverview(limit = 100): Promise<AdminOverview> {
+    if (config.isDemoMode) return mockApi.getAdminOverview(limit);
+    return this.request<AdminOverview>(`/admin/overview?limit=${limit}`);
   }
 }
 

@@ -77,6 +77,7 @@ export interface BootstrapData {
   supportedListeningStyles?: ListeningStyle[];
   translationMicrocopy: string;
   appVersion: string;
+  isAdmin: boolean;
 }
 
 export interface Verse {
@@ -155,4 +156,32 @@ export interface CreateFeedbackPayload {
   rating: number;
   message: string;
   contextPath?: string;
+}
+
+export interface AdminSummary {
+  totalUsers: number;
+  newUsersLast7Days: number;
+  activeSessions: number;
+  usersWithCompletionsLast7Days: number;
+}
+
+export interface AdminUser {
+  userId: string;
+  email: string;
+  createdAt: string;
+  activePlanSlug?: string | null;
+  currentDayIndex: number;
+  completedToday: boolean;
+  totalCompletions: number;
+  lastCompletionAt?: string | null;
+  notesCount: number;
+  feedbackCount: number;
+  activeSessions: number;
+  settings: Settings;
+}
+
+export interface AdminOverview {
+  summary: AdminSummary;
+  users: AdminUser[];
+  generatedAtUtc: string;
 }

@@ -16,6 +16,7 @@ import type {
   TodayReading,
   Feedback,
   CreateFeedbackPayload,
+  AdminOverview,
 } from "./types";
 import { DEFAULT_TRANSLATIONS } from "./translations";
 
@@ -172,6 +173,7 @@ class MockApiClient {
       supportedListeningStyles: ["calm_presence", "conversational_shepherd", "reflective_reading", "resonant_orator", "revival_fire"],
       translationMicrocopy: "More translations coming as licensing allows.",
       appVersion: "0.6.0",
+      isAdmin: true,
     };
   }
 
@@ -298,6 +300,35 @@ class MockApiClient {
   async getFeedback(limit = 20): Promise<Feedback[]> {
     await this.delay(120);
     return mockState.feedback.slice(0, limit);
+  }
+
+  async getAdminOverview(_limit = 100): Promise<AdminOverview> {
+    await this.delay(200);
+    return {
+      summary: {
+        totalUsers: 3,
+        newUsersLast7Days: 2,
+        activeSessions: 2,
+        usersWithCompletionsLast7Days: 2,
+      },
+      users: [
+        {
+          userId: "u1",
+          email: "admin@quietword.org",
+          createdAt: new Date().toISOString(),
+          activePlanSlug: "john-psalms-30",
+          currentDayIndex: 2,
+          completedToday: false,
+          totalCompletions: 1,
+          lastCompletionAt: new Date(Date.now() - 86400000).toISOString(),
+          notesCount: 3,
+          feedbackCount: 1,
+          activeSessions: 1,
+          settings: { ...mockState.settings }
+        }
+      ],
+      generatedAtUtc: new Date().toISOString()
+    };
   }
 }
 

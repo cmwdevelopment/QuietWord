@@ -276,6 +276,14 @@ export function Home() {
             >
               Feedback
             </button>
+            {bootstrap.isAdmin && (
+              <button
+                onClick={() => navigate("/admin")}
+                className="flex-1 px-3 py-3 glass hover:bg-glass-highlight border border-glass-border rounded-xl text-sm font-medium text-foreground transition-all"
+              >
+                Admin
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -18,7 +18,8 @@ public sealed record BootstrapResponse(
     string[] SupportedListeningVoices,
     string[] SupportedListeningStyles,
     string TranslationMicrocopy,
-    string AppVersion);
+    string AppVersion,
+    bool IsAdmin);
 
 public sealed record PlanSummary(Guid PlanId, string Slug, string Name, int TotalDays, int CurrentDayIndex);
 public sealed record UserSettingsDto(
@@ -59,6 +60,21 @@ public sealed record AudioSynthesizeRequest(string Text, string? Voice = null, s
 public sealed record CreateFeedbackRequest(string Category, int Rating, string Message, string? ContextPath = null);
 public sealed record FeedbackDto(Guid Id, string Category, int Rating, string Message, string? ContextPath, DateTime CreatedAt);
 public sealed record AppMetaResponse(string Version);
+public sealed record AdminSummaryDto(int TotalUsers, int NewUsersLast7Days, int ActiveSessions, int UsersWithCompletionsLast7Days);
+public sealed record AdminUserDto(
+    Guid UserId,
+    string Email,
+    DateTime CreatedAt,
+    string? ActivePlanSlug,
+    int CurrentDayIndex,
+    bool CompletedToday,
+    int TotalCompletions,
+    DateTime? LastCompletionAt,
+    int NotesCount,
+    int FeedbackCount,
+    int ActiveSessions,
+    UserSettingsDto Settings);
+public sealed record AdminOverviewResponse(AdminSummaryDto Summary, AdminUserDto[] Users, DateTime GeneratedAtUtc);
 
 public sealed record RequestMagicLinkRequest(string Email);
 public sealed record RequestMagicLinkResponse(bool Sent, string? DevToken = null);

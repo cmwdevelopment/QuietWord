@@ -40,6 +40,7 @@ public static class ApiEndpoints
         group.MapGet("/settings", GetSettingsAsync);
         group.MapPost("/settings", SaveSettingsAsync);
         group.MapGet("/meta/version", GetVersionAsync);
+        group.MapGet("/admin/overview", GetAdminOverviewAsync);
         group.MapPost("/feedback", CreateFeedbackAsync);
         group.MapGet("/feedback", GetFeedbackAsync);
         group.MapPost("/audio/synthesize", SynthesizeAudioAsync);
@@ -82,7 +83,8 @@ public static class ApiEndpoints
         var userId = await authService.GetCurrentUserIdAsync(request, ct);
         if (userId is null) return Results.Unauthorized();
 
-        var planData = await GetActivePlanAndStateAsync(db, userId.Value, ct);
+        var timeZone = ResolveTimeZone(request);
+        var planData = await GetActivePlanAndStateAsync(db, userId.Value, timeZone, ct);
         if (planData is null) return Results.NotFound("No active plan was found.");
 
         var (plan, state) = planData.Value;
@@ -158,7 +160,8 @@ public static class ApiEndpoints
             SupportedListeningVoices,
             SupportedListeningStyles,
             "Translation availability depends on your installed text libraries.",
-            GetAppVersion());
+            GetAppVersion(),
+            await IsAdminAsync(db, userId.Value, ct));
 
         return Results.Ok(response);
     }
@@ -168,7 +171,8 @@ public static class ApiEndpoints
         var userId = await authService.GetCurrentUserIdAsync(request, ct);
         if (userId is null) return Results.Unauthorized();
 
-        var planData = await GetActivePlanAndStateAsync(db, userId.Value, ct);
+        var timeZone = ResolveTimeZone(request);
+        var planData = await GetActivePlanAndStateAsync(db, userId.Value, timeZone, ct);
         if (planData is null) return Results.NotFound("No active plan was found.");
 
         var (plan, state) = planData.Value;
@@ -193,7 +197,8 @@ public static class ApiEndpoints
         var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
         if (userId is null) return Results.Unauthorized();
 
-        var planData = await GetActivePlanAndStateAsync(db, userId.Value, ct);
+        var timeZone = ResolveTimeZone(httpRequest);
+        var planData = await GetActivePlanAndStateAsync(db, userId.Value, timeZone, ct);
         if (planData is null) return Results.NotFound("No active plan was found.");
 
         var (_, state) = planData.Value;
@@ -255,7 +260,8 @@ public static class ApiEndpoints
         var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
         if (userId is null) return Results.Unauthorized();
 
-        var planData = await GetActivePlanAndStateAsync(db, userId.Value, ct);
+        var timeZone = ResolveTimeZone(httpRequest);
+        var planData = await GetActivePlanAndStateAsync(db, userId.Value, timeZone, ct);
         if (planData is null) return Results.NotFound("No active plan was found.");
 
         var (plan, state) = planData.Value;
@@ -458,6 +464,109 @@ public static class ApiEndpoints
         return Results.Ok(new AppMetaResponse(GetAppVersion()));
     }
 
+    private static async Task<IResult> GetAdminOverviewAsync(int? limit, AppDbContext db, IAuthService authService, HttpRequest request, CancellationToken ct)
+    {
+        var userId = await authService.GetCurrentUserIdAsync(request, ct);
+        if (userId is null) return Results.Unauthorized();
+        if (!await IsAdminAsync(db, userId.Value, ct)) return Results.Forbid();
+
+        var size = Math.Clamp(limit ?? 100, 1, 300);
+        var now = DateTime.UtcNow;
+        var weekAgo = now.AddDays(-7);
+        var todayUtc = now.Date;
+
+        var users = await db.Users
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(size)
+            .Select(x => new { x.Id, x.Email, x.CreatedAt })
+            .ToListAsync(ct);
+
+        var userIds = users.Select(x => x.Id).ToArray();
+        var settingsList = await db.UserSettings.Where(x => userIds.Contains(x.UserId)).ToListAsync(ct);
+        var activePlans = await db.UserPlans.Where(x => userIds.Contains(x.UserId) && x.IsActive).ToListAsync(ct);
+        var states = await db.ReadingStates.Where(x => userIds.Contains(x.UserId)).ToListAsync(ct);
+        var completions = await db.DailyCompletions.Where(x => userIds.Contains(x.UserId)).ToListAsync(ct);
+        var notesCounts = await db.ThreadNotes
+            .Where(x => userIds.Contains(x.UserId))
+            .GroupBy(x => x.UserId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+        var feedbackCounts = await db.FeedbackItems
+            .Where(x => userIds.Contains(x.UserId))
+            .GroupBy(x => x.UserId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+        var activeSessionCounts = await db.Sessions
+            .Where(x => userIds.Contains(x.UserId) && x.ExpiresAt > now)
+            .GroupBy(x => x.UserId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        var planIds = activePlans.Select(x => x.PlanId).Distinct().ToArray();
+        var planMap = await db.Plans.Where(x => planIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.Slug, ct);
+
+        var settingsMap = settingsList.ToDictionary(x => x.UserId, x => x);
+        var activePlanByUser = activePlans.GroupBy(x => x.UserId).ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First().PlanId);
+        var completionStats = completions
+            .GroupBy(x => x.UserId)
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    Total = g.Count(),
+                    Last = g.Max(x => x.CompletedAt),
+                    CompletedToday = g.Any(x => x.CompletedAt >= todayUtc)
+                });
+        var notesMap = notesCounts.ToDictionary(x => x.UserId, x => x.Count);
+        var feedbackMap = feedbackCounts.ToDictionary(x => x.UserId, x => x.Count);
+        var sessionMap = activeSessionCounts.ToDictionary(x => x.UserId, x => x.Count);
+
+        var rows = users.Select(user =>
+        {
+            settingsMap.TryGetValue(user.Id, out var settings);
+            activePlanByUser.TryGetValue(user.Id, out var activePlanId);
+            completionStats.TryGetValue(user.Id, out var completion);
+
+            var currentDay = states
+                .Where(x => x.UserId == user.Id && (activePlanId == Guid.Empty || x.PlanId == activePlanId))
+                .OrderByDescending(x => x.UpdatedAt)
+                .Select(x => x.CurrentDayIndex)
+                .FirstOrDefault();
+
+            return new AdminUserDto(
+                user.Id,
+                user.Email,
+                user.CreatedAt,
+                activePlanId != Guid.Empty && planMap.TryGetValue(activePlanId, out var slug) ? slug : null,
+                currentDay == 0 ? 1 : currentDay,
+                completion?.CompletedToday ?? false,
+                completion?.Total ?? 0,
+                completion?.Last,
+                notesMap.TryGetValue(user.Id, out var notes) ? notes : 0,
+                feedbackMap.TryGetValue(user.Id, out var feedback) ? feedback : 0,
+                sessionMap.TryGetValue(user.Id, out var sessions) ? sessions : 0,
+                new UserSettingsDto(
+                    settings?.Translation ?? "WEB",
+                    (settings?.Pace.ToString() ?? "Standard").ToLowerInvariant(),
+                    (settings?.ReminderTime ?? new TimeOnly(7, 30)).ToString("HH:mm"),
+                    settings?.FontFamily ?? "Roboto",
+                    settings?.RecapVoice ?? "classic_pastor",
+                    settings?.AccentColor ?? "teal_calm",
+                    settings?.ListeningEnabled ?? false,
+                    settings?.ListeningVoice ?? "warm_guide",
+                    settings?.ListeningStyle ?? "calm_presence",
+                    NormalizeListeningSpeed(settings?.ListeningSpeed ?? 1.0m)));
+        }).ToArray();
+
+        var summary = new AdminSummaryDto(
+            await db.Users.CountAsync(ct),
+            await db.Users.CountAsync(x => x.CreatedAt >= weekAgo, ct),
+            await db.Sessions.CountAsync(x => x.ExpiresAt > now, ct),
+            await db.DailyCompletions.Where(x => x.CompletedAt >= weekAgo).Select(x => x.UserId).Distinct().CountAsync(ct));
+
+        return Results.Ok(new AdminOverviewResponse(summary, rows, now));
+    }
+
     private static async Task<IResult> CreateFeedbackAsync(CreateFeedbackRequest request, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
     {
         var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
@@ -554,7 +663,7 @@ public static class ApiEndpoints
         return await db.Plans.SingleAsync(x => x.Id == planId, ct);
     }
 
-    private static async Task<(Plan plan, ReadingState state)?> GetActivePlanAndStateAsync(AppDbContext db, Guid userId, CancellationToken ct)
+    private static async Task<(Plan plan, ReadingState state)?> GetActivePlanAndStateAsync(AppDbContext db, Guid userId, TimeZoneInfo timeZone, CancellationToken ct)
     {
         var plan = await GetActivePlanAsync(db, userId, ct);
         if (plan is null) return null;
@@ -576,11 +685,11 @@ public static class ApiEndpoints
             await db.SaveChangesAsync(ct);
         }
 
-        await AdvanceDayIfNeededAsync(db, userId, plan, state, ct);
+        await AdvanceDayIfNeededAsync(db, userId, plan, state, timeZone, ct);
         return (plan, state);
     }
 
-    private static async Task AdvanceDayIfNeededAsync(AppDbContext db, Guid userId, Plan plan, ReadingState state, CancellationToken ct)
+    private static async Task AdvanceDayIfNeededAsync(AppDbContext db, Guid userId, Plan plan, ReadingState state, TimeZoneInfo timeZone, CancellationToken ct)
     {
         var completionForCurrentDay = await db.DailyCompletions
             .Where(x => x.UserId == userId && x.PlanId == plan.Id && x.DayIndex == state.CurrentDayIndex)
@@ -588,7 +697,9 @@ public static class ApiEndpoints
             .FirstOrDefaultAsync(ct);
 
         if (completionForCurrentDay is null) return;
-        if (completionForCurrentDay.CompletedAt.Date >= DateTime.UtcNow.Date) return;
+        var completionLocalDate = TimeZoneInfo.ConvertTimeFromUtc(completionForCurrentDay.CompletedAt, timeZone).Date;
+        var nowLocalDate = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, timeZone).Date;
+        if (completionLocalDate >= nowLocalDate) return;
 
         var maxDay = await db.PlanDays.Where(x => x.PlanId == plan.Id).MaxAsync(x => x.DayIndex, ct);
         state.CurrentDayIndex = Math.Min(maxDay, state.CurrentDayIndex + 1);
@@ -599,6 +710,24 @@ public static class ApiEndpoints
         state.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);
+    }
+
+    private static TimeZoneInfo ResolveTimeZone(HttpRequest request)
+    {
+        var tzId = request.Headers["X-Timezone"].ToString();
+        if (!string.IsNullOrWhiteSpace(tzId))
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(tzId.Trim());
+            }
+            catch
+            {
+                // Fall back to UTC for unknown timezone identifiers.
+            }
+        }
+
+        return TimeZoneInfo.Utc;
     }
 
     private static string ResolveRecap(PlanDay day, string voice)
@@ -620,6 +749,22 @@ public static class ApiEndpoints
     private static decimal NormalizeListeningSpeed(decimal value)
     {
         return Math.Round(Math.Clamp(value, 0.75m, 1.50m), 2);
+    }
+
+    private static async Task<bool> IsAdminAsync(AppDbContext db, Guid userId, CancellationToken ct)
+    {
+        var email = await db.Users.Where(x => x.Id == userId).Select(x => x.Email).SingleOrDefaultAsync(ct);
+        if (string.IsNullOrWhiteSpace(email)) return false;
+        return GetAdminEmails().Contains(email.Trim().ToLowerInvariant());
+    }
+
+    private static HashSet<string> GetAdminEmails()
+    {
+        var raw = Environment.GetEnvironmentVariable("ADMIN_EMAILS") ?? string.Empty;
+        return raw
+            .Split([',', ';'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.ToLowerInvariant())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private static string GetAppVersion()
