@@ -265,37 +265,59 @@ export function Home() {
 
       <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-glass-border glass-strong">
         <div className="max-w-2xl mx-auto p-3">
-          <div className="flex gap-3 flex-wrap">
+          <div className="flex items-center justify-between gap-2">
             <button
               onClick={() => navigate("/bible")}
-              className="flex-1 min-w-[100px] px-3 py-3 glass hover:bg-glass-highlight border border-glass-border rounded-xl text-sm font-medium text-foreground transition-all"
+              className="w-11 h-11 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
+              aria-label="Bible"
+              title="Bible"
             >
-              Bible
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6.5A2.5 2.5 0 016.5 4H20v14H6.5A2.5 2.5 0 014 20.5v-14z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 4v14" />
+              </svg>
             </button>
             <button
               onClick={() => navigate("/notes")}
-              className="flex-1 min-w-[100px] px-3 py-3 glass hover:bg-glass-highlight border border-glass-border rounded-xl text-sm font-medium text-foreground transition-all"
+              className="w-11 h-11 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
+              aria-label="Notes"
+              title="Notes"
             >
-              Notes
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 4h10a2 2 0 012 2v12l-4-2-4 2-4-2V6a2 2 0 012-2z" />
+              </svg>
             </button>
             <button
               onClick={() => navigate("/settings")}
-              className="flex-1 min-w-[100px] px-3 py-3 glass hover:bg-glass-highlight border border-glass-border rounded-xl text-sm font-medium text-foreground transition-all"
+              className="w-11 h-11 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
+              aria-label="Settings"
+              title="Settings"
             >
-              Settings
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317a1 1 0 011.9 0l.247.76a1 1 0 00.95.69h.8a1 1 0 01.95.69l.247.76a1 1 0 00.59.59l.76.247a1 1 0 01.69.95v.8a1 1 0 00.69.95l.76.247a1 1 0 010 1.9l-.76.247a1 1 0 00-.69.95v.8a1 1 0 01-.69.95l-.76.247a1 1 0 00-.59.59l-.247.76a1 1 0 01-.95.69h-.8a1 1 0 00-.95.69l-.247.76a1 1 0 01-1.9 0l-.247-.76a1 1 0 00-.95-.69h-.8a1 1 0 01-.95-.69l-.247-.76a1 1 0 00-.59-.59l-.76-.247a1 1 0 01-.69-.95v-.8a1 1 0 00-.69-.95l-.76-.247a1 1 0 010-1.9l.76-.247a1 1 0 00.69-.95v-.8a1 1 0 01.69-.95l.76-.247a1 1 0 00.59-.59l.247-.76a1 1 0 01.95-.69h.8a1 1 0 00.95-.69l.247-.76z" />
+                <circle cx="12" cy="12" r="2.5" strokeWidth="1.8" />
+              </svg>
             </button>
             <button
               onClick={() => navigate("/feedback")}
-              className="flex-1 min-w-[100px] px-3 py-3 glass hover:bg-glass-highlight border border-glass-border rounded-xl text-sm font-medium text-foreground transition-all"
+              className="w-11 h-11 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
+              aria-label="Feedback"
+              title="Feedback"
             >
-              Feedback
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 10h8M8 14h5m-5 7l-4-4V6a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2H8z" />
+              </svg>
             </button>
             {bootstrap.isAdmin && (
               <button
                 onClick={() => navigate("/admin")}
-                className="flex-1 min-w-[100px] px-3 py-3 glass hover:bg-glass-highlight border border-glass-border rounded-xl text-sm font-medium text-foreground transition-all"
+                className="w-11 h-11 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
+                aria-label="Admin"
+                title="Admin"
               >
-                Admin
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 3l7 4v5c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V7l7-4z" />
+                </svg>
               </button>
             )}
           </div>
