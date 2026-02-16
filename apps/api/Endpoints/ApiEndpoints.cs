@@ -468,7 +468,10 @@ public static class ApiEndpoints
     {
         var userId = await authService.GetCurrentUserIdAsync(request, ct);
         if (userId is null) return Results.Unauthorized();
-        if (!await IsAdminAsync(db, userId.Value, ct)) return Results.Forbid();
+        if (!await IsAdminAsync(db, userId.Value, ct))
+        {
+            return Results.Json(new { error = "Admin access required." }, statusCode: StatusCodes.Status403Forbidden);
+        }
 
         var size = Math.Clamp(limit ?? 100, 1, 300);
         var now = DateTime.UtcNow;
