@@ -64,6 +64,7 @@ export function BiblePage() {
   const [activeColor, setActiveColor] = useState<VerseHighlight["color"]>("amber");
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPassage, setIsLoadingPassage] = useState(false);
+  const [isLoadingCompare, setIsLoadingCompare] = useState(false);
 
   const currentReference = `${book} ${chapter}`;
   const chapterCount = useMemo(() => BOOKS.find((x) => x.name === book)?.chapters ?? 1, [book]);
@@ -143,6 +144,8 @@ export function BiblePage() {
     const nextCompare = compareEnabled && compareTranslation !== nextTranslation ? compareTranslation : "";
     if (!nextCompare) {
       setCompareTranslation("");
+      setComparePassage(null);
+      setIsLoadingCompare(false);
     }
     await loadPassage(book, chapter, nextTranslation, nextCompare);
   };
@@ -153,16 +156,31 @@ export function BiblePage() {
     if (!nextEnabled) {
       setCompareTranslation("");
       setComparePassage(null);
+      setIsLoadingCompare(false);
       return;
     }
-    if (compareTranslation) {
-      await loadPassage(book, chapter, translation, compareTranslation, { clearSelection: false });
+    const available = (bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation);
+    const nextCompare = compareTranslation && compareTranslation !== translation
+      ? compareTranslation
+      : (available[0] ?? "");
+    setCompareTranslation(nextCompare);
+    if (nextCompare) {
+      setIsLoadingCompare(true);
+      await loadPassage(book, chapter, translation, nextCompare, { clearSelection: false });
+      setIsLoadingCompare(false);
     }
   };
 
   const onCompareTranslationChange = async (nextCompare: Translation | "") => {
     setCompareTranslation(nextCompare);
+    if (!nextCompare) {
+      setComparePassage(null);
+      setIsLoadingCompare(false);
+      return;
+    }
+    setIsLoadingCompare(true);
     await loadPassage(book, chapter, translation, nextCompare, { clearSelection: false });
+    setIsLoadingCompare(false);
   };
 
   const toggleVerseSelection = (verseRef: string) => {
@@ -345,7 +363,7 @@ export function BiblePage() {
         </div>
       )}
 
-      <div className={`max-w-4xl mx-auto p-6 space-y-5 ${selectedVerseRefs.length > 0 ? "pt-44 pb-40" : "pt-44 pb-24"}`}>
+      <div className={`max-w-4xl mx-auto p-6 space-y-5 ${selectedVerseRefs.length > 0 ? "pt-44 pb-44" : "pt-44 pb-32"}`}>
 
         {passage && (
           <div className={`grid gap-4 ${comparePassage ? "md:grid-cols-2" : "grid-cols-1"}`}>
@@ -399,6 +417,18 @@ export function BiblePage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {compareEnabled && !comparePassage && (
+              <div className="glass p-4 rounded-2xl border border-glass-border">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-medium text-foreground">Compare</h2>
+                  <span className="text-xs text-foreground-muted">{compareTranslation || "Off"}</span>
+                </div>
+                <p className="text-sm text-foreground-muted">
+                  {isLoadingCompare ? "Loading comparison translation..." : "Choose a compare translation to view side-by-side text."}
+                </p>
               </div>
             )}
           </div>
