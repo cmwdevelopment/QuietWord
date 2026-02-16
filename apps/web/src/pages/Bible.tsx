@@ -96,20 +96,29 @@ export function BiblePage() {
     }
   };
 
-  const loadPassage = async (nextBook: string, nextChapter: string, nextTranslation: Translation, nextCompare: Translation | "") => {
+  const loadPassage = async (
+    nextBook: string,
+    nextChapter: string,
+    nextTranslation: Translation,
+    nextCompare: Translation | "",
+    options?: { clearSelection?: boolean },
+  ) => {
     setIsLoadingPassage(true);
     try {
       const ref = `${nextBook} ${nextChapter}`;
+      const compareTranslationToUse = nextCompare && nextCompare !== nextTranslation ? nextCompare : "";
       const [primary, highlightPayload, compare] = await Promise.all([
         api.getPassage(ref, nextTranslation),
         api.getBibleHighlights(ref, nextTranslation),
-        nextCompare ? api.getPassage(ref, nextCompare) : Promise.resolve(null),
+        compareTranslationToUse ? api.getPassage(ref, compareTranslationToUse) : Promise.resolve(null),
       ]);
 
       setPassage(primary);
       setHighlights(highlightPayload.highlights);
       setComparePassage(compare);
-      setSelectedVerseRefs([]);
+      if (options?.clearSelection ?? true) {
+        setSelectedVerseRefs([]);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load chapter");
     } finally {
@@ -131,7 +140,11 @@ export function BiblePage() {
 
   const onTranslationChange = async (nextTranslation: Translation) => {
     setTranslation(nextTranslation);
-    await loadPassage(book, chapter, nextTranslation, compareEnabled ? compareTranslation : "");
+    const nextCompare = compareEnabled && compareTranslation !== nextTranslation ? compareTranslation : "";
+    if (!nextCompare) {
+      setCompareTranslation("");
+    }
+    await loadPassage(book, chapter, nextTranslation, nextCompare);
   };
 
   const onCompareToggle = async () => {
@@ -143,13 +156,13 @@ export function BiblePage() {
       return;
     }
     if (compareTranslation) {
-      await loadPassage(book, chapter, translation, compareTranslation);
+      await loadPassage(book, chapter, translation, compareTranslation, { clearSelection: false });
     }
   };
 
   const onCompareTranslationChange = async (nextCompare: Translation | "") => {
     setCompareTranslation(nextCompare);
-    await loadPassage(book, chapter, translation, nextCompare);
+    await loadPassage(book, chapter, translation, nextCompare, { clearSelection: false });
   };
 
   const toggleVerseSelection = (verseRef: string) => {
@@ -239,6 +252,26 @@ export function BiblePage() {
               >
                 {(bootstrap?.supportedTranslations ?? []).map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
+              <button
+                onClick={() => void onCompareToggle()}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center ${compareEnabled ? "bg-primary/15 border-primary/40" : "glass border-glass-border"}`}
+                aria-label="Toggle compare translation"
+                title="Compare translation"
+              >
+                <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 7h8M3 12h6M3 17h8M13 7h8M15 12h6M13 17h8" />
+                </svg>
+              </button>
+              {compareEnabled && (
+                <select
+                  value={compareTranslation}
+                  onChange={(e) => void onCompareTranslationChange(e.target.value as Translation | "")}
+                  className="min-w-[90px] h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+                >
+                  <option value="">Off</option>
+                  {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              )}
               {isLoadingPassage && <span className="text-xs text-foreground-muted">Loading...</span>}
             </div>
           </div>
@@ -250,28 +283,6 @@ export function BiblePage() {
           <div className="max-w-4xl mx-auto px-6">
             <div className="glass-strong p-2 rounded-2xl border border-glass-border flex items-center gap-2 overflow-x-auto">
               <span className="text-[11px] text-foreground-muted px-1 whitespace-nowrap">{selectedVerseRefs.length} selected</span>
-
-              <button
-                onClick={() => void onCompareToggle()}
-                className={`w-9 h-9 rounded-full border flex items-center justify-center ${compareEnabled ? "bg-primary/15 border-primary/40" : "glass border-glass-border"}`}
-                aria-label="Toggle compare"
-                title="Toggle compare"
-              >
-                <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 6h10M8 12h10M8 18h10M4 6h.01M4 12h.01M4 18h.01" />
-                </svg>
-              </button>
-
-              {compareEnabled && (
-                <select
-                  value={compareTranslation}
-                  onChange={(e) => void onCompareTranslationChange(e.target.value as Translation | "")}
-                  className="h-9 min-w-[90px] px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-xs"
-                >
-                  <option value="">Off</option>
-                  {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              )}
 
               {HIGHLIGHT_COLORS.map((c) => (
                 <button
@@ -297,7 +308,7 @@ export function BiblePage() {
                 title="Remove highlight"
               >
                 <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18 6L6 18M6 6l12 12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 7h12M9 7v10m6-10v10M8 7l1-2h6l1 2M8 17h8" />
                 </svg>
               </button>
 
@@ -308,7 +319,7 @@ export function BiblePage() {
                 title="Share selection"
               >
                 <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12l8-4m-8 4l8 4m-8-4V4m8 4V4m0 12v4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12l8-5M8 12l8 5M8 12V4m8 3V4m0 13v3" />
                 </svg>
               </button>
 
