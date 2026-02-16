@@ -1,13 +1,16 @@
-// Simple loading spinner component
+// Shared loading spinner aligned with QuietWord glass theme
 
 import React from "react";
 
 export function LoadingSpinner({ message = "Loading..." }: { message?: string }) {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#F5F5F0] to-white flex items-center justify-center">
-      <div className="text-center space-y-4">
-        <div className="inline-block w-8 h-8 border-4 border-[#6B7F6A] border-t-transparent rounded-full animate-spin" />
-        <p className="text-gray-500">{message}</p>
+    <div className="min-h-screen flex items-center justify-center px-6">
+      <div className="glass-strong rounded-3xl border border-glass-border px-8 py-7 text-center space-y-4 shadow-lg max-w-sm w-full">
+        <div className="mx-auto relative w-10 h-10">
+          <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+          <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary border-r-accent animate-spin" />
+        </div>
+        <p className="text-sm text-foreground-muted">{message}</p>
       </div>
     </div>
   );

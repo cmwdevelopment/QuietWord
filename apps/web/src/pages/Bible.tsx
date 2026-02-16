@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import type { BootstrapData, Passage, Translation, VerseHighlight } from "../lib/types";
@@ -51,6 +51,7 @@ function isOtEcho(text: string): boolean {
 
 export function BiblePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [bootstrap, setBootstrap] = useState<BootstrapData | null>(null);
   const [translation, setTranslation] = useState<Translation>("WEB");
   const [book, setBook] = useState("John");
@@ -87,16 +88,20 @@ export function BiblePage() {
 
   React.useEffect(() => {
     void initialize();
-  }, []);
+  }, [searchParams.toString()]);
 
   const initialize = async () => {
     setIsLoading(true);
     try {
       const boot = await api.bootstrap();
       setBootstrap(boot);
-      const initialTranslation = boot.settings.translation;
+      const queryTranslation = (searchParams.get("translation") ?? "").toUpperCase() as Translation;
+      const initialTranslation = boot.supportedTranslations.includes(queryTranslation)
+        ? queryTranslation
+        : boot.settings.translation;
       setTranslation(initialTranslation);
-      const parsed = parseReference(boot.today.johnRef || "John 1");
+      const requestedRef = searchParams.get("ref")?.trim();
+      const parsed = parseReference(requestedRef || boot.today.johnRef || "John 1");
       setBook(parsed.book);
       setChapter(parsed.chapter);
       await loadPassage(parsed.book, parsed.chapter, initialTranslation, "");
