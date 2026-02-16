@@ -185,3 +185,18 @@ export interface AdminOverview {
   users: AdminUser[];
   generatedAtUtc: string;
 }
+
+export interface VerseHighlight {
+  id: string;
+  translation: string;
+  verseRef: string;
+  color: "amber" | "mint" | "sky" | "rose" | "lavender";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BibleHighlightsResponse {
+  ref: string;
+  translation: string;
+  highlights: VerseHighlight[];
+}

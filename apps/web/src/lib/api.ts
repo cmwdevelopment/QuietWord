@@ -17,6 +17,8 @@ import type {
   Feedback,
   CreateFeedbackPayload,
   AdminOverview,
+  BibleHighlightsResponse,
+  VerseHighlight,
 } from "./types";
 import { config } from "./config";
 import { mockApi } from "./mock-api";
@@ -208,6 +210,26 @@ class ApiClient {
   async getAdminOverview(limit = 100): Promise<AdminOverview> {
     if (config.isDemoMode) return mockApi.getAdminOverview(limit);
     return this.request<AdminOverview>(`/admin/overview?limit=${limit}`);
+  }
+
+  async getBibleHighlights(ref: string, translation: Translation): Promise<BibleHighlightsResponse> {
+    if (config.isDemoMode) return mockApi.getBibleHighlights(ref, translation);
+    const params = new URLSearchParams({ ref, translation });
+    return this.request<BibleHighlightsResponse>(`/bible/highlights?${params}`);
+  }
+
+  async saveBibleHighlight(payload: { translation: Translation; verseRef: string; color: VerseHighlight["color"] }): Promise<VerseHighlight> {
+    if (config.isDemoMode) return mockApi.saveBibleHighlight(payload);
+    return this.request<VerseHighlight>("/bible/highlights", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteBibleHighlight(translation: Translation, verseRef: string): Promise<{ deleted: boolean }> {
+    if (config.isDemoMode) return mockApi.deleteBibleHighlight(translation, verseRef);
+    const params = new URLSearchParams({ translation, verseRef });
+    return this.request<{ deleted: boolean }>(`/bible/highlights?${params}`, { method: "DELETE" });
   }
 }
 

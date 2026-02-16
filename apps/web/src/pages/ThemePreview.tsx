@@ -204,7 +204,7 @@ function ThemeCard({ themeName }: { themeName: ThemeName }) {
         {/* Progress Bar */}
         <div>
           <div className="flex justify-between text-xs mb-2" style={{ color: theme.colors.textMedium }}>
-            <span>Chunk 3 of 5</span>
+            <span>Passage 3 of 5</span>
             <span>60%</span>
           </div>
           <div className="h-2 rounded-full" style={{ backgroundColor: theme.colors.border }}>

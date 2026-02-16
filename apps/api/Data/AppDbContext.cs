@@ -17,6 +17,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<MagicLinkToken> MagicLinkTokens => Set<MagicLinkToken>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<FeedbackItem> FeedbackItems => Set<FeedbackItem>();
+    public DbSet<VerseHighlight> VerseHighlights => Set<VerseHighlight>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -170,6 +171,20 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             b.Property(x => x.ContextPath).HasColumnName("context_path");
             b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.HasIndex(x => new { x.UserId, x.CreatedAt }).IsDescending(false, true);
+        });
+
+        modelBuilder.Entity<VerseHighlight>(b =>
+        {
+            b.ToTable("verse_highlights");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.Translation).HasColumnName("translation");
+            b.Property(x => x.VerseRef).HasColumnName("verse_ref");
+            b.Property(x => x.Color).HasColumnName("color");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            b.HasIndex(x => new { x.UserId, x.Translation, x.VerseRef }).IsUnique();
+            b.HasIndex(x => new { x.UserId, x.UpdatedAt }).IsDescending(false, true);
         });
     }
 }

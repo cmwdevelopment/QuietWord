@@ -75,6 +75,9 @@ public sealed record AdminUserDto(
     int ActiveSessions,
     UserSettingsDto Settings);
 public sealed record AdminOverviewResponse(AdminSummaryDto Summary, AdminUserDto[] Users, DateTime GeneratedAtUtc);
+public sealed record VerseHighlightDto(Guid Id, string Translation, string VerseRef, string Color, DateTime CreatedAt, DateTime UpdatedAt);
+public sealed record SaveVerseHighlightRequest(string Translation, string VerseRef, string Color);
+public sealed record BibleHighlightsResponse(string Ref, string Translation, VerseHighlightDto[] Highlights);
 
 public sealed record RequestMagicLinkRequest(string Email);
 public sealed record RequestMagicLinkResponse(bool Sent, string? DevToken = null);

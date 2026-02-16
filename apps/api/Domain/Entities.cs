@@ -157,3 +157,14 @@ public sealed class FeedbackItem
     [MaxLength(120)] public string? ContextPath { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
+
+public sealed class VerseHighlight
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    [MaxLength(10)] public string Translation { get; set; } = "WEB";
+    [MaxLength(80)] public string VerseRef { get; set; } = string.Empty;
+    [MaxLength(24)] public string Color { get; set; } = "amber";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}

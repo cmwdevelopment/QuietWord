@@ -28,10 +28,10 @@ export function ChunkPager({
 
   return (
     <div className="space-y-6">
-      {/* Chunk indicator with modern style */}
+      {/* Passage indicator with modern style */}
       <div className="text-center space-y-4">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-secondary rounded-full">
-          <span className="text-sm font-medium text-foreground-muted">Chunk</span>
+          <span className="text-sm font-medium text-foreground-muted">Passage</span>
           <span className="text-sm font-bold text-foreground">
             {currentChunk + 1}
           </span>
@@ -46,7 +46,7 @@ export function ChunkPager({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span>
-              {showNextCheckpoint.label} at chunk {showNextCheckpoint.atChunk + 1}
+              {showNextCheckpoint.label} at passage {showNextCheckpoint.atChunk + 1}
             </span>
           </div>
         )}
@@ -87,7 +87,7 @@ export function ChunkPager({
             fullWidth
           >
             <div className="flex items-center gap-2">
-              <span>Next</span>
+              <span>Next passage</span>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>

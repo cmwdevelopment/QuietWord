@@ -10,6 +10,7 @@ import { Settings } from "../pages/Settings";
 import { SignIn } from "../pages/SignIn";
 import { FeedbackPage } from "../pages/Feedback";
 import { AdminPage } from "../pages/Admin";
+import { BiblePage } from "../pages/Bible";
 import ThemePreview from "../pages/ThemePreview";
 import { NotFound } from "../pages/NotFound";
 
@@ -45,6 +46,10 @@ export const router = createBrowserRouter([
   {
     path: "/feedback",
     Component: FeedbackPage,
+  },
+  {
+    path: "/bible",
+    Component: BiblePage,
   },
   {
     path: "/admin",

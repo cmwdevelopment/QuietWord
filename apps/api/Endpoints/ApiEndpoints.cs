@@ -13,6 +13,7 @@ public static class ApiEndpoints
     private static readonly string[] SupportedAccentColors = ["teal_calm", "sage_mist", "sky_blue", "lavender_hush", "rose_dawn", "sand_warm"];
     private static readonly string[] SupportedListeningVoices = ["warm_guide", "calm_narrator", "pastoral", "youthful", "classic"];
     private static readonly string[] SupportedListeningStyles = ["calm_presence", "conversational_shepherd", "reflective_reading", "resonant_orator", "revival_fire"];
+    private static readonly string[] SupportedHighlightColors = ["amber", "mint", "sky", "rose", "lavender"];
     private static readonly HashSet<string> SupportedFonts = new(StringComparer.OrdinalIgnoreCase)
     {
         "Inter", "Roboto", "Open Sans", "Lato", "Montserrat", "Merriweather", "Lora", "PT Serif", "Playfair Display"
@@ -31,6 +32,10 @@ public static class ApiEndpoints
         group.MapGet("/bootstrap", GetBootstrapAsync);
         group.MapGet("/day/today", GetTodayAsync);
         group.MapGet("/passage", GetPassageAsync);
+        group.MapGet("/bible/passage", GetPassageAsync);
+        group.MapGet("/bible/highlights", GetBibleHighlightsAsync);
+        group.MapPost("/bible/highlights", SaveBibleHighlightAsync);
+        group.MapDelete("/bible/highlights", DeleteBibleHighlightAsync);
         group.MapPost("/state/resume", SaveResumeAsync);
         group.MapPost("/notes", CreateNoteAsync);
         group.MapGet("/notes", GetNotesAsync);
@@ -190,6 +195,87 @@ public static class ApiEndpoints
         if (string.IsNullOrWhiteSpace(@ref)) return Results.BadRequest("Missing ref query parameter.");
         var value = await textProvider.GetPassageAsync(@ref.Trim(), string.IsNullOrWhiteSpace(translation) ? "WEB" : translation, ct);
         return Results.Ok(value);
+    }
+
+    private static async Task<IResult> GetBibleHighlightsAsync(string @ref, string? translation, AppDbContext db, ITextProvider textProvider, IAuthService authService, HttpRequest request, CancellationToken ct)
+    {
+        var userId = await authService.GetCurrentUserIdAsync(request, ct);
+        if (userId is null) return Results.Unauthorized();
+        if (string.IsNullOrWhiteSpace(@ref)) return Results.BadRequest("Missing ref query parameter.");
+
+        var normalizedTranslation = string.IsNullOrWhiteSpace(translation) ? "WEB" : translation.Trim().ToUpperInvariant();
+        var passage = await textProvider.GetPassageAsync(@ref.Trim(), normalizedTranslation, ct);
+        var verseRefs = passage.Verses.Select(x => x.Ref).Distinct().ToArray();
+
+        var highlights = await db.VerseHighlights
+            .Where(x => x.UserId == userId.Value && x.Translation == passage.Translation && verseRefs.Contains(x.VerseRef))
+            .OrderBy(x => x.VerseRef)
+            .Select(x => new VerseHighlightDto(x.Id, x.Translation, x.VerseRef, x.Color, x.CreatedAt, x.UpdatedAt))
+            .ToArrayAsync(ct);
+
+        return Results.Ok(new BibleHighlightsResponse(passage.Ref, passage.Translation, highlights));
+    }
+
+    private static async Task<IResult> SaveBibleHighlightAsync(SaveVerseHighlightRequest request, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
+    {
+        var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
+        if (userId is null) return Results.Unauthorized();
+
+        var translation = string.IsNullOrWhiteSpace(request.Translation) ? "WEB" : request.Translation.Trim().ToUpperInvariant();
+        var verseRef = (request.VerseRef ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(verseRef)) return Results.BadRequest("VerseRef is required.");
+
+        var color = string.IsNullOrWhiteSpace(request.Color) ? "amber" : request.Color.Trim().ToLowerInvariant();
+        if (!SupportedHighlightColors.Contains(color))
+        {
+            color = "amber";
+        }
+
+        var existing = await db.VerseHighlights
+            .SingleOrDefaultAsync(x => x.UserId == userId.Value && x.Translation == translation && x.VerseRef == verseRef, ct);
+        if (existing is null)
+        {
+            existing = new VerseHighlight
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId.Value,
+                Translation = translation,
+                VerseRef = verseRef,
+                Color = color,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            db.VerseHighlights.Add(existing);
+        }
+        else
+        {
+            existing.Color = color;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(new VerseHighlightDto(existing.Id, existing.Translation, existing.VerseRef, existing.Color, existing.CreatedAt, existing.UpdatedAt));
+    }
+
+    private static async Task<IResult> DeleteBibleHighlightAsync(string verseRef, string? translation, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)
+    {
+        var userId = await authService.GetCurrentUserIdAsync(httpRequest, ct);
+        if (userId is null) return Results.Unauthorized();
+        var normalizedVerseRef = (verseRef ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(normalizedVerseRef)) return Results.BadRequest("Missing verseRef query parameter.");
+
+        var normalizedTranslation = string.IsNullOrWhiteSpace(translation) ? "WEB" : translation.Trim().ToUpperInvariant();
+        var row = await db.VerseHighlights.SingleOrDefaultAsync(
+            x => x.UserId == userId.Value && x.Translation == normalizedTranslation && x.VerseRef == normalizedVerseRef, ct);
+
+        if (row is null)
+        {
+            return Results.Ok(new { deleted = false });
+        }
+
+        db.VerseHighlights.Remove(row);
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(new { deleted = true });
     }
 
     private static async Task<IResult> SaveResumeAsync(SaveResumeRequest request, AppDbContext db, IAuthService authService, HttpRequest httpRequest, CancellationToken ct)

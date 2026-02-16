@@ -17,6 +17,8 @@ import type {
   Feedback,
   CreateFeedbackPayload,
   AdminOverview,
+  BibleHighlightsResponse,
+  VerseHighlight,
 } from "./types";
 import { DEFAULT_TRANSLATIONS } from "./translations";
 
@@ -56,6 +58,7 @@ let mockState = {
   },
   notes: [] as Note[],
   feedback: [] as Feedback[],
+  highlights: [] as VerseHighlight[],
 };
 
 // Mock passages
@@ -329,6 +332,45 @@ class MockApiClient {
       ],
       generatedAtUtc: new Date().toISOString()
     };
+  }
+
+  async getBibleHighlights(ref: string, translation: Translation): Promise<BibleHighlightsResponse> {
+    await this.delay(120);
+    const passage = await this.getPassage(ref, translation);
+    const verseSet = new Set(passage.verses.map((v) => v.ref));
+    return {
+      ref,
+      translation,
+      highlights: mockState.highlights.filter((h) => h.translation === translation && verseSet.has(h.verseRef)),
+    };
+  }
+
+  async saveBibleHighlight(payload: { translation: Translation; verseRef: string; color: VerseHighlight["color"] }): Promise<VerseHighlight> {
+    await this.delay(80);
+    const existing = mockState.highlights.find((h) => h.translation === payload.translation && h.verseRef === payload.verseRef);
+    if (existing) {
+      existing.color = payload.color;
+      existing.updatedAt = new Date().toISOString();
+      return existing;
+    }
+
+    const next: VerseHighlight = {
+      id: `hl-${Date.now()}`,
+      translation: payload.translation,
+      verseRef: payload.verseRef,
+      color: payload.color,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockState.highlights.push(next);
+    return next;
+  }
+
+  async deleteBibleHighlight(translation: Translation, verseRef: string): Promise<{ deleted: boolean }> {
+    await this.delay(60);
+    const before = mockState.highlights.length;
+    mockState.highlights = mockState.highlights.filter((h) => !(h.translation === translation && h.verseRef === verseRef));
+    return { deleted: mockState.highlights.length < before };
   }
 }
 
