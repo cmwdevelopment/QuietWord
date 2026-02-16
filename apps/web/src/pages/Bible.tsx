@@ -246,55 +246,88 @@ export function BiblePage() {
       </div>
 
       {selectedVerseRefs.length > 0 && (
-        <div className="fixed left-0 right-0 top-[136px] z-30">
+        <div className="fixed left-0 right-0 bottom-16 z-30">
           <div className="max-w-4xl mx-auto px-6">
-            <div className="glass p-3 rounded-2xl border border-glass-border">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-foreground-muted"><span className="font-medium text-foreground">{selectedVerseRefs.length}</span> selected</p>
-                <button onClick={() => setSelectedVerseRefs([])} className="text-xs px-2 py-1 rounded-full glass border border-glass-border">Clear</button>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => void onCompareToggle()}
-                  className={`h-8 px-3 rounded-lg border text-xs ${compareEnabled ? "bg-primary/15 border-primary/40 text-foreground" : "glass border-glass-border text-foreground-muted"}`}
+            <div className="glass-strong p-2 rounded-2xl border border-glass-border flex items-center gap-2 overflow-x-auto">
+              <span className="text-[11px] text-foreground-muted px-1 whitespace-nowrap">{selectedVerseRefs.length} selected</span>
+
+              <button
+                onClick={() => void onCompareToggle()}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center ${compareEnabled ? "bg-primary/15 border-primary/40" : "glass border-glass-border"}`}
+                aria-label="Toggle compare"
+                title="Toggle compare"
+              >
+                <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 6h10M8 12h10M8 18h10M4 6h.01M4 12h.01M4 18h.01" />
+                </svg>
+              </button>
+
+              {compareEnabled && (
+                <select
+                  value={compareTranslation}
+                  onChange={(e) => void onCompareTranslationChange(e.target.value as Translation | "")}
+                  className="h-9 min-w-[90px] px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-xs"
                 >
-                  Compare
-                </button>
-                {compareEnabled && (
-                  <select
-                    value={compareTranslation}
-                    onChange={(e) => void onCompareTranslationChange(e.target.value as Translation | "")}
-                    className="h-8 min-w-[90px] px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-xs"
-                  >
-                    <option value="">Off</option>
-                    {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                )}
-                {HIGHLIGHT_COLORS.map((c) => (
-                  <button
-                    key={c.key}
-                    onClick={() => void applyHighlight(c.key)}
-                    className={`w-6 h-6 rounded-full border ${activeColor === c.key ? "border-white" : "border-white/30"}`}
-                    style={{
-                      backgroundColor:
-                        c.key === "amber" ? "#f59e0b" :
-                        c.key === "mint" ? "#10b981" :
-                        c.key === "sky" ? "#0ea5e9" :
-                        c.key === "rose" ? "#f43f5e" : "#8b5cf6",
-                    }}
-                    aria-label={`Use ${c.label}`}
-                    title={c.label}
-                  />
-                ))}
-                <button onClick={() => void clearHighlights()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">Remove</button>
-                <button onClick={() => void shareSelection()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">Share</button>
-              </div>
+                  <option value="">Off</option>
+                  {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              )}
+
+              {HIGHLIGHT_COLORS.map((c) => (
+                <button
+                  key={c.key}
+                  onClick={() => void applyHighlight(c.key)}
+                  className={`w-7 h-7 rounded-full border ${activeColor === c.key ? "border-white" : "border-white/30"}`}
+                  style={{
+                    backgroundColor:
+                      c.key === "amber" ? "#f59e0b" :
+                      c.key === "mint" ? "#10b981" :
+                      c.key === "sky" ? "#0ea5e9" :
+                      c.key === "rose" ? "#f43f5e" : "#8b5cf6",
+                  }}
+                  aria-label={`Highlight ${c.label}`}
+                  title={c.label}
+                />
+              ))}
+
+              <button
+                onClick={() => void clearHighlights()}
+                className="w-9 h-9 rounded-full glass border border-glass-border flex items-center justify-center"
+                aria-label="Remove highlight"
+                title="Remove highlight"
+              >
+                <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+
+              <button
+                onClick={() => void shareSelection()}
+                className="w-9 h-9 rounded-full glass border border-glass-border flex items-center justify-center"
+                aria-label="Share selection"
+                title="Share selection"
+              >
+                <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12l8-4m-8 4l8 4m-8-4V4m8 4V4m0 12v4" />
+                </svg>
+              </button>
+
+              <button
+                onClick={() => setSelectedVerseRefs([])}
+                className="w-9 h-9 rounded-full glass border border-glass-border flex items-center justify-center"
+                aria-label="Clear selection"
+                title="Clear selection"
+              >
+                <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className={`max-w-4xl mx-auto p-6 pb-24 space-y-5 ${selectedVerseRefs.length > 0 ? "pt-[250px]" : "pt-44"}`}>
+      <div className={`max-w-4xl mx-auto p-6 space-y-5 ${selectedVerseRefs.length > 0 ? "pt-44 pb-40" : "pt-44 pb-24"}`}>
 
         {passage && (
           <div className={`grid gap-4 ${comparePassage ? "md:grid-cols-2" : "grid-cols-1"}`}>
