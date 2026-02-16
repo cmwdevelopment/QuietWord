@@ -185,12 +185,12 @@ export function BiblePage() {
           <div />
         </div>
 
-        <div className="glass-strong p-4 rounded-2xl space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+        <div className="glass-strong p-3 rounded-2xl space-y-2">
+          <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center">
             <select
               value={book}
               onChange={(e) => setBook(e.target.value)}
-              className="md:col-span-2 p-3 rounded-xl glass border border-glass-border bg-input-background text-foreground"
+              className="col-span-2 md:col-span-4 p-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
             >
               {BIBLE_BOOKS.map((b) => (
                 <option key={b} value={b}>{b}</option>
@@ -201,35 +201,37 @@ export function BiblePage() {
               min={1}
               value={chapter}
               onChange={(e) => setChapter(e.target.value)}
-              className="p-3 rounded-xl glass border border-glass-border bg-input-background text-foreground"
-              placeholder="Chapter"
+              className="col-span-1 md:col-span-2 p-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+              placeholder="Ch"
             />
             <input
               type="number"
               min={1}
               value={verseStart}
               onChange={(e) => setVerseStart(e.target.value)}
-              className="p-3 rounded-xl glass border border-glass-border bg-input-background text-foreground"
-              placeholder="Verse start"
+              className="col-span-1 md:col-span-2 p-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+              placeholder="V1"
             />
             <input
               type="number"
               min={1}
               value={verseEnd}
               onChange={(e) => setVerseEnd(e.target.value)}
-              className="p-3 rounded-xl glass border border-glass-border bg-input-background text-foreground"
-              placeholder="Verse end"
+              className="col-span-1 md:col-span-2 p-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+              placeholder="V2"
             />
-            <PrimaryButton onClick={() => void handleLoad()} disabled={isLoadingPassage}>
+            <div className="col-span-1 md:col-span-2">
+              <PrimaryButton onClick={() => void handleLoad()} disabled={isLoadingPassage}>
               {isLoadingPassage ? "Loading..." : "Load"}
-            </PrimaryButton>
+              </PrimaryButton>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
             <select
               value={translation}
               onChange={(e) => setTranslation(e.target.value)}
-              className="p-3 rounded-xl glass border border-glass-border bg-input-background text-foreground"
+              className="p-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
             >
               {(bootstrap?.supportedTranslations ?? []).map((t) => (
                 <option key={t} value={t}>{t}</option>
@@ -242,14 +244,14 @@ export function BiblePage() {
                 setCompareTranslation(next);
                 await loadPassage(currentReference, translation, next);
               }}
-              className="p-3 rounded-xl glass border border-glass-border bg-input-background text-foreground"
+              className="p-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
             >
               <option value="">Compare: Off</option>
               {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
-            <div className="md:col-span-2 text-xs text-foreground-muted">
+            <div className="md:col-span-3 text-xs text-foreground-muted truncate">
               Loaded reference: <span className="font-mono">{currentReference}</span>
             </div>
           </div>
@@ -271,7 +273,7 @@ export function BiblePage() {
                 <button
                   key={c.key}
                   onClick={() => setActiveColor(c.key)}
-                  className={`px-3 py-1 rounded-full border text-xs ${c.className} ${activeColor === c.key ? "ring-2 ring-primary" : ""}`}
+                  className={`px-3 py-1 rounded-full border text-xs text-slate-900 ${c.className} ${activeColor === c.key ? "ring-2 ring-primary" : ""}`}
                 >
                   {c.label}
                 </button>
@@ -300,6 +302,7 @@ export function BiblePage() {
                 {passage.verses.map((verse) => {
                   const isSelected = selectedVerseRefs.includes(verse.ref);
                   const h = highlightByRef.get(verse.ref);
+                  const hasHighlight = Boolean(h);
                   const colorClass = h
                     ? HIGHLIGHT_COLORS.find((x) => x.key === h.color)?.className ?? "bg-amber-100 border-amber-300"
                     : "bg-transparent border-glass-border";
@@ -307,10 +310,10 @@ export function BiblePage() {
                     <button
                       key={verse.ref}
                       onClick={() => toggleVerseSelection(verse.ref)}
-                      className={`w-full text-left rounded-xl border p-3 transition-colors ${colorClass} ${isSelected ? "ring-2 ring-primary" : ""}`}
+                      className={`w-full text-left rounded-xl border p-3 transition-colors ${colorClass} ${isSelected ? "ring-2 ring-primary" : ""} ${hasHighlight ? "text-slate-900" : ""}`}
                     >
-                      <p className="text-xs text-foreground-subtle mb-1">{verse.ref}</p>
-                      <p className="text-foreground leading-relaxed">{verse.text}</p>
+                      <p className={`text-xs mb-1 ${hasHighlight ? "text-slate-600" : "text-foreground-subtle"}`}>{verse.ref}</p>
+                      <p className={`${hasHighlight ? "text-slate-900" : "text-foreground"} leading-relaxed`}>{verse.text}</p>
                     </button>
                   );
                 })}
@@ -339,4 +342,3 @@ export function BiblePage() {
     </div>
   );
 }
-

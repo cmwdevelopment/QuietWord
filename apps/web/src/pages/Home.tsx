@@ -268,55 +268,58 @@ export function Home() {
           <div className="flex items-center justify-between gap-2">
             <button
               onClick={() => navigate("/bible")}
-              className="w-11 h-11 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
+              className="w-12 h-12 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
               aria-label="Bible"
               title="Bible"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6.5A2.5 2.5 0 016.5 4H20v14H6.5A2.5 2.5 0 014 20.5v-14z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 4v14" />
+              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M5 5.5A2.5 2.5 0 017.5 3H20v16H7.5A2.5 2.5 0 015 16.5v-11z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M8 3v16" />
               </svg>
             </button>
             <button
               onClick={() => navigate("/notes")}
-              className="w-11 h-11 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
+              className="w-12 h-12 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
               aria-label="Notes"
               title="Notes"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 4h10a2 2 0 012 2v12l-4-2-4 2-4-2V6a2 2 0 012-2z" />
+              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M8 4h8l4 4v12a1 1 0 01-1 1H8a3 3 0 01-3-3V7a3 3 0 013-3z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M16 4v4h4M9 12h6M9 16h4" />
               </svg>
             </button>
             <button
               onClick={() => navigate("/settings")}
-              className="w-11 h-11 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
+              className="w-12 h-12 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
               aria-label="Settings"
               title="Settings"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317a1 1 0 011.9 0l.247.76a1 1 0 00.95.69h.8a1 1 0 01.95.69l.247.76a1 1 0 00.59.59l.76.247a1 1 0 01.69.95v.8a1 1 0 00.69.95l.76.247a1 1 0 010 1.9l-.76.247a1 1 0 00-.69.95v.8a1 1 0 01-.69.95l-.76.247a1 1 0 00-.59.59l-.247.76a1 1 0 01-.95.69h-.8a1 1 0 00-.95.69l-.247.76a1 1 0 01-1.9 0l-.247-.76a1 1 0 00-.95-.69h-.8a1 1 0 01-.95-.69l-.247-.76a1 1 0 00-.59-.59l-.76-.247a1 1 0 01-.69-.95v-.8a1 1 0 00-.69-.95l-.76-.247a1 1 0 010-1.9l.76-.247a1 1 0 00.69-.95v-.8a1 1 0 01.69-.95l.76-.247a1 1 0 00.59-.59l.247-.76a1 1 0 01.95-.69h.8a1 1 0 00.95-.69l.247-.76z" />
-                <circle cx="12" cy="12" r="2.5" strokeWidth="1.8" />
+              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3" strokeWidth="1.9" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M19.4 15a1 1 0 00.2 1.1l.1.1a2 2 0 01-2.8 2.8l-.1-.1a1 1 0 00-1.1-.2 1 1 0 00-.6.9V20a2 2 0 01-4 0v-.2a1 1 0 00-.6-.9 1 1 0 00-1.1.2l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1 1 0 00.2-1.1 1 1 0 00-.9-.6H4a2 2 0 010-4h.2a1 1 0 00.9-.6 1 1 0 00-.2-1.1l-.1-.1a2 2 0 012.8-2.8l.1.1a1 1 0 001.1.2h.1a1 1 0 00.5-.9V4a2 2 0 014 0v.2a1 1 0 00.6.9 1 1 0 001.1-.2l.1-.1a2 2 0 012.8 2.8l-.1.1a1 1 0 00-.2 1.1v.1a1 1 0 00.9.5H20a2 2 0 010 4h-.2a1 1 0 00-.4.1 1 1 0 00-.5.5z" />
               </svg>
             </button>
             <button
               onClick={() => navigate("/feedback")}
-              className="w-11 h-11 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
+              className="w-12 h-12 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
               aria-label="Feedback"
               title="Feedback"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 10h8M8 14h5m-5 7l-4-4V6a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2H8z" />
+              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M5 19l2.5-2H19a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M8 10h8M8 14h6" />
               </svg>
             </button>
             {bootstrap.isAdmin && (
               <button
                 onClick={() => navigate("/admin")}
-                className="w-11 h-11 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
+                className="w-12 h-12 glass hover:bg-glass-highlight border border-glass-border rounded-full text-foreground transition-all flex items-center justify-center"
                 aria-label="Admin"
                 title="Admin"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 3l7 4v5c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V7l7-4z" />
+                <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M12 3l8 3v6c0 5.5-3.8 8-8 9-4.2-1-8-3.5-8-9V6l8-3z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M9.5 12.5l1.7 1.7 3.3-3.3" />
                 </svg>
               </button>
             )}
