@@ -252,28 +252,35 @@ export function BiblePage() {
               >
                 {(bootstrap?.supportedTranslations ?? []).map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
-              <button
-                onClick={() => void onCompareToggle()}
-                className={`w-9 h-9 rounded-full border flex items-center justify-center ${compareEnabled ? "bg-primary/15 border-primary/40" : "glass border-glass-border"}`}
-                aria-label="Toggle compare translation"
-                title="Compare translation"
-              >
-                <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 7h8M3 12h6M3 17h8M13 7h8M15 12h6M13 17h8" />
-                </svg>
-              </button>
-              {compareEnabled && (
-                <select
-                  value={compareTranslation}
-                  onChange={(e) => void onCompareTranslationChange(e.target.value as Translation | "")}
-                  className="min-w-[90px] h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
-                >
-                  <option value="">Off</option>
-                  {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              )}
               {isLoadingPassage && <span className="text-xs text-foreground-muted">Loading...</span>}
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={`fixed left-0 right-0 z-30 ${selectedVerseRefs.length > 0 ? "bottom-32" : "bottom-16"}`}>
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="inline-flex items-center gap-2 glass-strong p-2 rounded-2xl border border-glass-border">
+            <button
+              onClick={() => void onCompareToggle()}
+              className={`w-10 h-10 rounded-full border flex items-center justify-center ${compareEnabled ? "bg-primary/20 border-primary/50" : "glass border-glass-border"}`}
+              aria-label="Toggle compare translation"
+              title="Compare translation"
+            >
+              <svg className="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M3 7h8M3 12h6M3 17h8M13 7h8M15 12h6M13 17h8" />
+              </svg>
+            </button>
+            {compareEnabled && (
+              <select
+                value={compareTranslation}
+                onChange={(e) => void onCompareTranslationChange(e.target.value as Translation | "")}
+                className="min-w-[110px] h-10 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
+              >
+                <option value="">Off</option>
+                {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            )}
           </div>
         </div>
       </div>
@@ -303,34 +310,34 @@ export function BiblePage() {
 
               <button
                 onClick={() => void clearHighlights()}
-                className="w-9 h-9 rounded-full glass border border-glass-border flex items-center justify-center"
+                className="w-10 h-10 rounded-full glass border border-glass-border flex items-center justify-center"
                 aria-label="Remove highlight"
                 title="Remove highlight"
               >
-                <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 7h12M9 7v10m6-10v10M8 7l1-2h6l1 2M8 17h8" />
+                <svg className="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M6 7h12M9 7v10m6-10v10M8 7l1-2h6l1 2M8 17h8" />
                 </svg>
               </button>
 
               <button
                 onClick={() => void shareSelection()}
-                className="w-9 h-9 rounded-full glass border border-glass-border flex items-center justify-center"
+                className="w-10 h-10 rounded-full glass border border-glass-border flex items-center justify-center"
                 aria-label="Share selection"
                 title="Share selection"
               >
-                <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12l8-5M8 12l8 5M8 12V4m8 3V4m0 13v3" />
+                <svg className="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 16V7M8 11l4-4 4 4M5 13v5h14v-5" />
                 </svg>
               </button>
 
               <button
                 onClick={() => setSelectedVerseRefs([])}
-                className="w-9 h-9 rounded-full glass border border-glass-border flex items-center justify-center"
+                className="w-10 h-10 rounded-full glass border border-glass-border flex items-center justify-center"
                 aria-label="Clear selection"
                 title="Clear selection"
               >
-                <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 18L18 6M6 6l12 12" />
+                <svg className="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
