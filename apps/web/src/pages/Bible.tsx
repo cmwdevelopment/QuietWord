@@ -37,12 +37,13 @@ export function BiblePage() {
   const navigate = useNavigate();
   const [bootstrap, setBootstrap] = useState<BootstrapData | null>(null);
   const [translation, setTranslation] = useState<Translation>("WEB");
-  const [compareEnabled, setCompareEnabled] = useState(false);
-  const [compareTranslation, setCompareTranslation] = useState<Translation | "">("");
   const [book, setBook] = useState("John");
   const [chapter, setChapter] = useState("1");
   const [passage, setPassage] = useState<Passage | null>(null);
+  const [compareEnabled, setCompareEnabled] = useState(false);
+  const [compareTranslation, setCompareTranslation] = useState<Translation | "">("");
   const [comparePassage, setComparePassage] = useState<Passage | null>(null);
+  const [selectedVerseRefs, setSelectedVerseRefs] = useState<string[]>([]);
   const [highlights, setHighlights] = useState<VerseHighlight[]>([]);
   const [activeColor, setActiveColor] = useState<VerseHighlight["color"]>("amber");
   const [isLoading, setIsLoading] = useState(true);
@@ -59,6 +60,14 @@ export function BiblePage() {
   useEffect(() => {
     void initialize();
   }, []);
+
+  useEffect(() => {
+    if (selectedVerseRefs.length === 0 && compareEnabled) {
+      setCompareEnabled(false);
+      setCompareTranslation("");
+      setComparePassage(null);
+    }
+  }, [selectedVerseRefs.length, compareEnabled]);
 
   const initialize = async () => {
     setIsLoading(true);
@@ -88,6 +97,7 @@ export function BiblePage() {
       setPassage(p);
       setHighlights(h.highlights);
       setComparePassage(c);
+      setSelectedVerseRefs([]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load chapter");
     } finally {
@@ -99,36 +109,66 @@ export function BiblePage() {
     await loadPassage(currentReference, translation, compareEnabled ? compareTranslation : "");
   };
 
+  const toggleVerseSelection = (verseRef: string) => {
+    setSelectedVerseRefs((prev) => (prev.includes(verseRef) ? prev.filter((v) => v !== verseRef) : [...prev, verseRef]));
+  };
+
   const refreshHighlights = async () => {
     const refreshed = await api.getBibleHighlights(currentReference, translation);
     setHighlights(refreshed.highlights);
   };
 
-  const toggleVerseHighlight = async (verseRef: string) => {
+  const applyHighlightToSelection = async () => {
+    if (selectedVerseRefs.length === 0) return;
     try {
-      const existing = highlightByRef.get(verseRef);
-      if (existing && existing.color === activeColor) {
-        await api.deleteBibleHighlight(translation, verseRef);
-      } else {
-        await api.saveBibleHighlight({ translation, verseRef, color: activeColor });
-      }
+      await Promise.all(selectedVerseRefs.map((verseRef) => api.saveBibleHighlight({ translation, verseRef, color: activeColor })));
       await refreshHighlights();
+      toast.success("Highlight applied");
     } catch {
       toast.error("Unable to save highlight");
     }
   };
 
-  const shareVerse = async (text: string, verseRef: string) => {
-    const content = `${text}\n\n${verseRef} (${translation})`;
+  const clearHighlightFromSelection = async () => {
+    if (selectedVerseRefs.length === 0) return;
+    try {
+      await Promise.all(selectedVerseRefs.map((verseRef) => api.deleteBibleHighlight(translation, verseRef)));
+      await refreshHighlights();
+      toast.success("Highlight removed");
+    } catch {
+      toast.error("Unable to clear highlight");
+    }
+  };
+
+  const shareSelection = async () => {
+    if (!passage || selectedVerseRefs.length === 0) return;
+    const selectedSet = new Set(selectedVerseRefs);
+    const selectedVerses = passage.verses.filter((v) => selectedSet.has(v.ref));
+    if (!selectedVerses.length) return;
+
+    const content = `${selectedVerses.map((v) => v.text).join("\n")}\n\n${selectedVerses.map((v) => v.ref).join(", ")} (${translation})`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: verseRef, text: content });
+        await navigator.share({ title: currentReference, text: content });
       } else {
         await navigator.clipboard.writeText(content);
       }
-      toast.success("Verse copied to share");
+      toast.success("Selection copied to share");
     } catch {
-      toast.error("Unable to share verse");
+      toast.error("Unable to share selection");
+    }
+  };
+
+  const handleCompareToggle = async () => {
+    const next = !compareEnabled;
+    setCompareEnabled(next);
+    if (!next) {
+      setCompareTranslation("");
+      setComparePassage(null);
+      return;
+    }
+    if (compareTranslation) {
+      await loadPassage(currentReference, translation, compareTranslation);
     }
   };
 
@@ -147,7 +187,7 @@ export function BiblePage() {
           <div />
         </div>
 
-        <div className="glass-strong p-3 rounded-2xl space-y-2">
+        <div className="glass-strong p-3 rounded-2xl">
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             <select
               value={book}
@@ -180,51 +220,64 @@ export function BiblePage() {
                 {isLoadingPassage ? "Loading..." : "Load"}
               </PrimaryButton>
             </div>
-            <button
-              onClick={() => {
-                const next = !compareEnabled;
-                setCompareEnabled(next);
-                if (!next) {
-                  setCompareTranslation("");
-                  setComparePassage(null);
-                }
-              }}
-              className={`h-9 px-3 rounded-lg border text-xs ${compareEnabled ? "bg-primary/15 border-primary/40 text-foreground" : "glass border-glass-border text-foreground-muted"}`}
-            >
-              Compare
-            </button>
-            {compareEnabled && (
-              <select
-                value={compareTranslation}
-                onChange={async (e) => {
-                  const next = e.target.value as Translation | "";
-                  setCompareTranslation(next);
-                  await loadPassage(currentReference, translation, next);
-                }}
-                className="min-w-[90px] h-9 px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-sm"
-              >
-                <option value="">Off</option>
-                {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs uppercase text-foreground-muted">Highlight</span>
-            {HIGHLIGHT_COLORS.map((c) => (
-              <button
-                key={c.key}
-                onClick={() => setActiveColor(c.key)}
-                className={`px-3 py-1 rounded-full border text-xs text-slate-900 ${c.className} ${activeColor === c.key ? "ring-2 ring-primary" : ""}`}
-              >
-                {c.label}
-              </button>
-            ))}
-            <span className="text-xs text-foreground-subtle">Tap a verse to highlight/unhighlight. Share per verse.</span>
           </div>
         </div>
+
+        {selectedVerseRefs.length > 0 && (
+          <div className="glass p-3 rounded-2xl border border-glass-border space-y-2 sticky top-2 z-20">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-foreground-muted">
+                <span className="font-medium text-foreground">{selectedVerseRefs.length}</span> selected
+              </p>
+              <button onClick={() => setSelectedVerseRefs([])} className="text-xs px-2 py-1 rounded-full glass border border-glass-border">
+                Clear
+              </button>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => void handleCompareToggle()}
+                className={`h-8 px-3 rounded-lg border text-xs ${compareEnabled ? "bg-primary/15 border-primary/40 text-foreground" : "glass border-glass-border text-foreground-muted"}`}
+              >
+                Compare
+              </button>
+              {compareEnabled && (
+                <select
+                  value={compareTranslation}
+                  onChange={async (e) => {
+                    const next = e.target.value as Translation | "";
+                    setCompareTranslation(next);
+                    await loadPassage(currentReference, translation, next);
+                  }}
+                  className="h-8 min-w-[90px] px-2 rounded-lg glass border border-glass-border bg-input-background text-foreground text-xs"
+                >
+                  <option value="">Off</option>
+                  {(bootstrap?.supportedTranslations ?? []).filter((t) => t !== translation).map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              )}
+
+              {HIGHLIGHT_COLORS.map((c) => (
+                <button
+                  key={c.key}
+                  onClick={() => setActiveColor(c.key)}
+                  className={`px-2.5 py-1 rounded-full border text-xs text-slate-900 ${c.className} ${activeColor === c.key ? "ring-2 ring-primary" : ""}`}
+                >
+                  {c.label}
+                </button>
+              ))}
+              <button onClick={() => void applyHighlightToSelection()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">
+                Apply
+              </button>
+              <button onClick={() => void clearHighlightFromSelection()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">
+                Remove
+              </button>
+              <button onClick={() => void shareSelection()} className="h-8 px-3 rounded-lg glass border border-glass-border text-xs">
+                Share
+              </button>
+            </div>
+          </div>
+        )}
 
         {passage && (
           <div className={`grid gap-4 ${comparePassage ? "md:grid-cols-2" : "grid-cols-1"}`}>
@@ -237,26 +290,21 @@ export function BiblePage() {
                 {passage.verses.map((verse) => {
                   const h = highlightByRef.get(verse.ref);
                   const hasHighlight = Boolean(h);
+                  const isSelected = selectedVerseRefs.includes(verse.ref);
                   const colorClass = h
                     ? HIGHLIGHT_COLORS.find((x) => x.key === h.color)?.className ?? "bg-amber-100 border-amber-300"
                     : "bg-transparent border-transparent";
                   return (
-                    <div key={verse.ref} className={`rounded-lg border px-2 py-2 transition-colors ${colorClass}`}>
-                      <div className="flex items-start gap-3">
-                        <button onClick={() => void toggleVerseHighlight(verse.ref)} className="text-left flex-1">
-                          <p className={`${hasHighlight ? "text-slate-900" : "text-foreground"} leading-relaxed`}>
-                            <span className={`text-xs align-super mr-1 ${hasHighlight ? "text-slate-600" : "text-foreground-subtle"}`}>{verse.verse}</span>
-                            {verse.text}
-                          </p>
-                        </button>
-                        <button
-                          onClick={() => void shareVerse(verse.text, verse.ref)}
-                          className="text-xs px-2 py-1 rounded-full glass border border-glass-border"
-                        >
-                          Share
-                        </button>
-                      </div>
-                    </div>
+                    <button
+                      key={verse.ref}
+                      onClick={() => toggleVerseSelection(verse.ref)}
+                      className={`w-full text-left rounded-lg border px-2 py-2 transition-colors ${colorClass} ${isSelected ? "ring-2 ring-primary" : ""}`}
+                    >
+                      <p className={`${hasHighlight ? "text-slate-900" : "text-foreground"} leading-relaxed`}>
+                        <span className={`text-xs align-super mr-1 ${hasHighlight ? "text-slate-600" : "text-foreground-subtle"}`}>{verse.verse}</span>
+                        {verse.text}
+                      </p>
+                    </button>
                   );
                 })}
               </div>

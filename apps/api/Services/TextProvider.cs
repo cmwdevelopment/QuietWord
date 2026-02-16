@@ -204,7 +204,9 @@ public sealed class BibleApiTextProvider(
         var chapter = int.Parse(match.Groups["chapter"].Value);
         var hasStart = match.Groups["start"].Success;
         var startVerse = hasStart ? int.Parse(match.Groups["start"].Value) : 1;
-        var endVerse = match.Groups["end"].Success ? int.Parse(match.Groups["end"].Value) : startVerse;
+        var endVerse = match.Groups["end"].Success
+            ? int.Parse(match.Groups["end"].Value)
+            : hasStart ? startVerse : int.MaxValue;
 
         string bookKey;
         string display;
