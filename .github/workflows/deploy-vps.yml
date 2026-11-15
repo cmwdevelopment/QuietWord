@@ -12,6 +12,9 @@ on:
 
 jobs:
   deploy:
+    # Paused after exposure of the deployment SSH key. Re-enable only after
+    # server-side revocation and replacement of VPS_SSH_KEY with a new key.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - name: Validate deploy secrets
