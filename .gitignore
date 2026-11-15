@@ -5,3 +5,7 @@
 *.user
 *.suo
 *.log
+
+# Never commit deployment SSH key files.
+/quietword_actions_key
+/quietword_actions_key.pub
